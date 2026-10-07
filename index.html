@@ -1,0 +1,766 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Magic Pick Rehearsal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bowlby+One+SC&family=Karla:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --bg: #e9ede9; --panel: #f6f8f5; --ink: #1b2320; --muted: #5a6762; --line: #c9d2cd;
+  --accent: #1d6a86; --accent-ink: #fff; --spot: #f2c14e; --spot-ink: #1b2320; --solo: #8a4fb0; --rec: #c2372f;
+  --robbie: #1d6a86; --melissa: #b0346f; --clive: #9a6b00;
+  --display: "Bowlby One SC", "Arial Black", Impact, sans-serif;
+  --body: "Karla", "Helvetica Neue", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111714; --panel: #19211d; --ink: #e6ece8; --muted: #95a49d; --line: #2c3833;
+  --accent: #63b6d3; --accent-ink: #0d1412; --spot: #f0b93f; --spot-ink: #15110a; --solo: #c792ea; --rec: #ff6b5e;
+  --robbie: #63b6d3; --melissa: #f07fb4; --clive: #e2b04a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #111714; --panel: #19211d; --ink: #e6ece8; --muted: #95a49d; --line: #2c3833;
+  --accent: #63b6d3; --accent-ink: #0d1412; --spot: #f0b93f; --spot-ink: #15110a; --solo: #c792ea; --rec: #ff6b5e;
+  --robbie: #63b6d3; --melissa: #f07fb4; --clive: #e2b04a; color-scheme: dark }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.5; }
+.wrap { max-width: 860px; margin: 0 auto; padding: 24px 16px 56px; display: grid; gap: 18px; }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--display); font-weight: 400; font-size: clamp(30px, 7vw, 46px); line-height: 1.02; margin: 4px 0; }
+h2 { font-family: var(--display); font-weight: 400; font-size: clamp(22px, 5vw, 30px); line-height: 1.05; margin: 0; text-wrap: balance; }
+h3 { font-size: 15px; margin: 0; }
+.meta { display: flex; flex-wrap: wrap; gap: 4px 14px; font-family: var(--mono); font-size: 13px; color: var(--muted); }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 14px; min-width: 0; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+button, select, input { font: inherit; font-size: 15px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+button { font-weight: 700; padding: 9px 14px; cursor: pointer; }
+select, input { padding: 7px 8px; max-width: 100%; }
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:focus-visible, select:focus-visible, input:focus-visible, .line:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+button:disabled { opacity: .45; cursor: not-allowed; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); min-width: 96px; }
+button.rec { color: var(--rec); border-color: var(--rec); }
+button.rec::before { content: "●"; margin-right: 6px; }
+button.rec.on { background: var(--rec); color: var(--bg); }
+button[aria-pressed="true"].toggle { background: var(--spot); color: var(--spot-ink); border-color: var(--spot); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; font-size: 14px; padding: 8px 12px; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.tabs button { font-family: var(--display); font-weight: 400; font-size: 18px; padding: 6px 16px; }
+.pos { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 14px; color: var(--muted); margin-left: auto; text-align: right; }
+.pos b { color: var(--ink); font-weight: 500; }
+.stage { font-family: var(--mono); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; background: var(--bg); border: 1px solid var(--line); color: var(--muted); }
+.stage.solo { background: var(--solo); border-color: var(--solo); color: var(--bg); }
+.stage.count { background: var(--spot); border-color: var(--spot); color: var(--spot-ink); }
+.stage.dlg { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.stage.rec { background: var(--rec); border-color: var(--rec); color: var(--bg); }
+.bar { position: relative; height: 10px; border-radius: 5px; background: var(--bg); border: 1px solid var(--line); overflow: hidden; cursor: pointer; }
+.bar i { position: absolute; inset: 0 auto 0 0; background: var(--accent); width: 0; }
+.bar .soloZone { position: absolute; top: 0; bottom: 0; background: var(--solo); opacity: .25; }
+.note { font-size: 14px; color: var(--muted); margin: 0; }
+.lyrics { display: grid; gap: 2px; max-height: 380px; overflow-y: auto; }
+.line { display: grid; grid-template-columns: 64px minmax(0,1fr); gap: 12px; align-items: baseline; padding: 7px 10px; border-radius: 8px; cursor: pointer; }
+.line .at { font-family: var(--mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.line .tx { font-size: 19px; font-weight: 500; text-transform: uppercase; letter-spacing: .02em; color: var(--muted); }
+.line.past .tx { color: var(--ink); opacity: .55; }
+.line.now { background: var(--spot); }
+.line.now .tx, .line.now .at, .line.now .who { color: var(--spot-ink) !important; opacity: 1; }
+.dlgline .tx { text-transform: none; letter-spacing: 0; font-size: 18px; color: var(--ink); }
+.dlgline .who { font-family: var(--mono); font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: .05em; }
+.dlgline .dir { font-style: italic; color: var(--muted); font-size: 15px; }
+.who.Robbie { color: var(--robbie); } .who.Melissa { color: var(--melissa); } .who.Clive { color: var(--clive); } .who.other { color: var(--muted); }
+.sub-h { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 8px 10px 2px; }
+.songs { display: grid; gap: 4px; }
+.song { display: grid; grid-template-columns: 32px minmax(0,1fr) auto; gap: 4px 12px; align-items: center; padding: 10px; border-radius: 8px; border: 1px solid transparent; }
+.song:hover { border-color: var(--line); }
+.song.cur { border-color: var(--accent); background: var(--bg); }
+.song .num { font-family: var(--mono); font-size: 13px; color: var(--muted); }
+.song .name { font-weight: 700; cursor: pointer; background: none; border: 0; padding: 0; text-align: left; font-size: 16px; color: var(--ink); }
+.song .sub { grid-column: 2; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.song .picks { grid-column: 3; grid-row: 1 / span 2; display: flex; gap: 10px; }
+.pick { display: grid; gap: 2px; }
+.pick span { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.pick select { font-size: 13px; padding: 5px 6px; max-width: 190px; }
+.recpanel { border-color: var(--rec); }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px 14px; }
+label.f { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+label.f input, label.f select { color: var(--ink); }
+.meter { height: 8px; border-radius: 4px; background: var(--bg); border: 1px solid var(--line); overflow: hidden; }
+.meter i { display: block; height: 100%; width: 0; background: var(--rec); }
+.who-bar { font-family: var(--mono); font-size: 13px; color: var(--muted); }
+[hidden] { display: none !important; }
+@media (max-width: 600px) {
+  .song { grid-template-columns: 28px minmax(0,1fr); }
+  .song .picks { grid-column: 2; grid-row: auto; flex-wrap: wrap; }
+  .pos { margin-left: 0; text-align: left; width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header class="row" style="align-items:flex-end">
+    <div style="flex:1 1 280px">
+      <div class="eyebrow">Magic Pick · Rehearsal player</div>
+      <h1 id="actTitle">Act 1</h1>
+      <div class="meta" id="actMeta"></div>
+    </div>
+    <div class="seg tabs" role="group" aria-label="Act">
+      <button data-act="1" aria-pressed="true">Act 1</button>
+      <button data-act="2" aria-pressed="false">Act 2</button>
+    </div>
+  </header>
+
+  <section class="panel" aria-label="Now playing">
+    <div class="row">
+      <div style="min-width:0;flex:1 1 260px">
+        <div class="eyebrow" id="npScene"></div>
+        <h2 id="npTitle"></h2>
+      </div>
+      <span class="stage" id="stage">Ready</span>
+    </div>
+    <div class="row">
+      <button id="prev" aria-label="Previous song">◀︎</button>
+      <button id="play" class="primary">Play</button>
+      <button id="next" aria-label="Next song">▶︎</button>
+      <button id="loop" class="toggle" aria-pressed="false">Loop</button>
+      <button id="recVocal" class="rec">Vocal</button>
+      <button id="recSolo" class="rec">Gtr solo</button>
+      <div class="pos" id="pos"></div>
+    </div>
+    <div class="bar" id="bar" role="slider" tabindex="0" aria-label="Position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="soloZone" id="soloZone" hidden></span><i id="fill"></i></div>
+    <div class="row">
+      <div class="seg" role="group" aria-label="Mix">
+        <button data-mix="band" aria-pressed="false">Band</button>
+        <button data-mix="bandvox" aria-pressed="true">Band + Vox</button>
+      </div>
+      <button id="through" class="toggle" aria-pressed="true">Play through the act</button>
+      <button id="dlgToggle" class="toggle" aria-pressed="false">Play dialogue</button>
+      <button id="skip" hidden>Skip dialogue</button>
+    </div>
+    <p class="note" id="status">Press Play. Songs load as you reach them.</p>
+  </section>
+
+  <section class="panel recpanel" id="recPanel" aria-label="Recorder" hidden>
+    <div class="row">
+      <div style="flex:1 1 240px">
+        <div class="eyebrow" id="recKindLabel">Record</div>
+        <h3 id="recSongLabel"></h3>
+      </div>
+      <button id="recClose">Close</button>
+    </div>
+    <div class="grid2">
+      <label class="f">Your name (handle)
+        <select id="recPlayer"></select>
+      </label>
+      <label class="f" id="newPlayerWrap" hidden>New handle
+        <input id="recNewHandle" maxlength="24" autocomplete="nickname" placeholder="e.g. Brian">
+      </label>
+      <label class="f">PIN (4–8 digits, keeps your private takes yours)
+        <input id="recPin" inputmode="numeric" type="password" maxlength="8" autocomplete="current-password">
+      </label>
+      <label class="f">Who can hear this take
+        <select id="recPrivacy"><option value="public">Everyone (public)</option><option value="private">Only me and the director (private)</option></select>
+      </label>
+      <label class="f">Input
+        <select id="recDevice"><option value="">Default input</option></select>
+      </label>
+      <label class="f">Input channel
+        <select id="recChannel"><option value="0">Input 1</option><option value="1">Input 2</option></select>
+      </label>
+      <label class="f">Latency correction (ms)
+        <input id="recLatency" type="number" min="0" max="500" step="1" value="0">
+      </label>
+    </div>
+    <div class="row">
+      <button id="recCalibrate">Measure latency</button>
+      <span class="note" id="calNote">Uses your speakers and mic: hold still and keep the room quiet.</span>
+    </div>
+    <div class="meter" aria-hidden="true"><i id="recMeter"></i></div>
+    <div class="row">
+      <button id="recGo" class="rec">Record</button>
+      <button id="recListen" disabled>Listen back</button>
+      <button id="recSave" class="primary" disabled>Save take</button>
+      <button id="recDiscard" disabled>Discard</button>
+    </div>
+    <p class="note" id="recNote"></p>
+  </section>
+
+  <section class="panel" aria-label="Lyrics and dialogue">
+    <div class="eyebrow" id="lyrHead">Lyrics</div>
+    <div class="lyrics" id="lyrics"></div>
+    <p class="note" id="lyrNote"></p>
+  </section>
+
+  <section class="panel" aria-label="Running order">
+    <div class="row">
+      <h2 style="flex:1">Running order</h2>
+      <span class="who-bar" id="whoBar"></span>
+    </div>
+    <p class="note">Pick a vocal take to sing along with a cast member instead of the guide vocal, or a guitar solo to play after the song: a bar's pause, two bars of click, then the Loop repeats under the solo. Turn on <b>Play dialogue</b> to read each scene between songs.</p>
+    <div class="songs" id="songs"></div>
+  </section>
+</main>
+
+<script src="config.js"></script>
+<script src="data.js"></script>
+<script>
+"use strict";
+const GAP = 1.5;
+const $ = id => document.getElementById(id);
+const fmtT = s => { s = Math.max(0, s); const m = Math.floor(s / 60), r = Math.floor(s % 60); return m + ":" + String(r).padStart(2, "0"); };
+const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+
+// admin key arrives once as ?admin=KEY and is remembered on this device
+(() => { const p = new URLSearchParams(location.search); if (p.get("admin")) { store.set("mp_admin", p.get("admin")); history.replaceState(null, "", location.pathname); } })();
+const ADMIN = store.get("mp_admin") || "";
+
+let act = store.get("mp_act") === "2" ? "2" : "1";
+let SONGS = ACTS[act].songs;
+
+// ---------------- audio engine ----------------
+let ctx = null, out = null;
+const cache = new Map();
+function audio() {
+  if (!ctx) { ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: "interactive" }); out = ctx.createGain(); out.connect(ctx.destination); requestAnimationFrame(tick); }
+  return ctx;
+}
+async function fetchDecode(file, expect) {
+  for (let a = 0; a < 3; a++) {
+    const r = await fetch(file, a ? { cache: "reload" } : {});
+    if (!r.ok) throw new Error("missing");
+    const buf = await audio().decodeAudioData(await r.arrayBuffer());
+    if (!expect || buf.duration >= expect - 0.25) return buf;
+  }
+  throw new Error("incomplete");
+}
+function load(file, expect) {
+  if (!cache.has(file)) cache.set(file, fetchDecode(file, expect).catch(e => { cache.delete(file); throw e; }));
+  return cache.get(file);
+}
+const songFile = (i, m) => "audio/a" + act + "/" + SONGS[i].n + "_" + m + ".mp4";
+const loopFile = i => "audio/a" + act + "/" + SONGS[i].n + "_loop.mp4";
+
+let sources = [];
+function src(buf, when, offset, loop, gain) {
+  const n = ctx.createBufferSource(); n.buffer = buf; n.loop = !!loop;
+  let dest = out; if (gain != null) { const g = ctx.createGain(); g.gain.value = gain; g.connect(out); dest = g; }
+  n.connect(dest);
+  if (offset < 0) { when -= offset; offset = 0; }
+  n.start(Math.max(when, ctx.currentTime), Math.max(0, offset || 0)); sources.push(n); return n;
+}
+function stopAll() { sources.forEach(s => { try { s.onended = null; s.stop(); } catch (e) {} try { s.disconnect(); } catch (e) {} }); sources = []; }
+function makeClick(accent) {
+  const sr = ctx.sampleRate, n = Math.round(sr * 0.03), b = ctx.createBuffer(1, n, sr), d = b.getChannelData(0), f = accent ? 1760 : 1175;
+  for (let i = 0; i < n; i++) d[i] = Math.sin(2 * Math.PI * f * i / sr) * 0.5 * Math.exp(-i / (sr * 0.006));
+  return b;
+}
+
+// ---------------- takes (Google Drive backend) ----------------
+let TAKES = []; // {id, handle, act, song, kind, private, created, dur, offset, file?}
+let PLAYERS = [];
+let me = { handle: store.get("mp_handle") || "", pin: store.get("mp_pin") || "" };
+const picks = { vocal: {}, solo: {} }; // key act-song -> take id
+const key = (a, n) => a + "-" + n;
+async function api(action, body) {
+  if (!BACKEND_URL) throw new Error("no_backend");
+  const r = await fetch(BACKEND_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(Object.assign({ action, admin: ADMIN || undefined }, body || {})) });
+  const j = await r.json();
+  if (!j.ok) throw new Error(j.error || "failed");
+  return j;
+}
+async function refreshTakes() {
+  let remote = [];
+  try { const j = await api("list", { handle: me.handle, pin: me.pin }); remote = j.takes || []; PLAYERS = j.players || []; }
+  catch (e) { if (e.message !== "no_backend") setStatus("Couldn't reach the takes library. Playback still works."); }
+  TAKES = LEGACY_TAKES.concat(remote);
+  for (const t of TAKES) if (t.handle && !PLAYERS.some(p => p.toLowerCase() === t.handle.toLowerCase())) PLAYERS.push(t.handle);
+  PLAYERS.sort((a, b) => a.localeCompare(b));
+  renderSongs(); renderWho(); fillPlayers();
+}
+function takesFor(i, kind) { const n = SONGS[i].n; return TAKES.filter(t => String(t.act) === act && t.song === n && t.kind === kind); }
+function takeById(id) { return TAKES.find(t => t.id === id); }
+function takeLabel(t) { const d = new Date(t.created); return t.handle + " · " + d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) + (t.private ? " · private" : ""); }
+const takeBufs = new Map();
+function loadTake(t) {
+  if (!takeBufs.has(t.id)) {
+    const p = (async () => {
+      if (t.file) return fetchDecode(t.file, t.dur);
+      const j = await api("get", { id: t.id, handle: me.handle, pin: me.pin });
+      const bin = Uint8Array.from(atob(j.data), c => c.charCodeAt(0));
+      return audio().decodeAudioData(bin.buffer);
+    })().catch(e => { takeBufs.delete(t.id); throw e; });
+    takeBufs.set(t.id, p);
+  }
+  return takeBufs.get(t.id);
+}
+const vocalTake = i => { const id = picks.vocal[key(act, SONGS[i].n)]; return id ? takeById(id) : null; };
+const soloTake = i => { const id = picks.solo[key(act, SONGS[i].n)]; return id ? takeById(id) : null; };
+
+// ---------------- playback sequence ----------------
+// For each song: [dialogue before] -> song -> [solo] -> [dialogue after] -> next song
+let cur = 0, mix = "bandvox", through = true, dialogueOn = store.get("mp_dlg") === "1";
+let phase = "song", playing = false, loopMode = false, plan = null, timer = null, run = 0;
+let dlg = null; // {i, which, lines, k, until}
+let loopStart = 0;
+
+function dlgLines(i, which) {
+  const d = SONGS[i].dlg || {};
+  if (which === "before") return [].concat((d.before || []).map(x => ({ x })), (d.during || []).length ? [{ head: "During the song" }].concat(d.during.map(x => ({ x }))) : []);
+  return (d.after || []).map(x => ({ x }));
+}
+const hasDlg = (i, which) => dlgLines(i, which).some(l => l.x);
+function lineSecs(l) { if (!l.x) return 0.8; const w = (l.x[2] + " " + l.x[1]).split(/\s+/).length; return Math.min(9, Math.max(2.4, 1.2 + w * 0.36)); }
+
+function makePlan(i) {
+  const s = SONGS[i], spb = 60 / s.bpm, bar = spb * s.meter, t = soloTake(i);
+  const p = { i, dur: s.dur, spb, bar, take: t };
+  if (t) { p.countAt = s.dur + bar; p.loopAt = p.countAt + 2 * bar; p.passes = Math.max(1, Math.round(t.dur / s.loopDur)); p.end = p.loopAt + p.passes * s.loopDur; }
+  else p.end = s.dur;
+  return p;
+}
+function stopEverything() { run++; clearTimeout(timer); stopAll(); playing = false; loopMode = false; $("loop").setAttribute("aria-pressed", "false"); }
+
+async function start(i, ph, pos) {
+  stopEverything(); audio(); const my = run;
+  if (i !== cur) { cur = i; renderNow(); }
+  if (ph === "before" && !(dialogueOn && hasDlg(i, "before"))) { ph = "song"; pos = 0; }
+  if (ph === "after" && !(dialogueOn && hasDlg(i, "after"))) return advance(my);
+  phase = ph; ui();
+  if (ph === "song") return playSong(i, pos || 0, my);
+  return playDialogue(i, ph, pos || 0, my);
+}
+function advance(my) {
+  if (my !== run) return;
+  playing = false; plan = null; dlg = null; ui();
+  if (through && cur + 1 < SONGS.length) {
+    setStatus("Next: " + SONGS[cur + 1].title); phase = "gap";
+    timer = setTimeout(() => { if (my === run) start(cur + 1, "before", 0); }, GAP * 1000);
+  } else { setStatus(cur + 1 < SONGS.length ? "Song finished." : "End of " + ACTS[act].title + "."); phase = "song"; showLyrics(); }
+}
+
+async function playSong(i, pos, my) {
+  audio(); await ctx.resume();
+  const p = makePlan(i), vt = vocalTake(i), m = vt ? "band" : mix;
+  setStatus("Loading " + SONGS[i].title + "…");
+  let song, loopB, takeB, vocB;
+  try {
+    [song, loopB, takeB, vocB] = await Promise.all([
+      load(songFile(i, m), SONGS[i].dur),
+      p.take ? load(loopFile(i), SONGS[i].loopDur) : null,
+      p.take ? loadTake(p.take) : null,
+      vt ? loadTake(vt) : null]);
+  } catch (e) { if (my === run) { setStatus("Couldn't load " + SONGS[i].title + ". Check your connection and press Play again."); playing = false; ui(); } return; }
+  if (my !== run) return;
+  showLyrics();
+  const t0 = ctx.currentTime + 0.08, st = t0 - pos;
+  if (pos < p.dur) src(song, t0, pos);
+  if (vocB && pos < p.dur) src(vocB, t0, pos + (vt.offset || 0));
+  if (p.take) {
+    for (let k = 0; k < 2 * SONGS[i].meter; k++) { const at = st + p.countAt + k * p.spb; if (at >= t0 - 0.001) src(makeClick(k % SONGS[i].meter === 0), at, 0); }
+    if (pos < p.end) {
+      const into = Math.max(0, pos - p.loopAt), at = Math.max(st + p.loopAt, t0);
+      const l = src(loopB, at, into % SONGS[i].loopDur, true); l.stop(st + p.end);
+      if (into + (p.take.offset || 0) < takeB.duration) src(takeB, at, into + (p.take.offset || 0));
+    }
+  }
+  plan = Object.assign(p, { start: st }); playing = true; phase = "song"; ui(); setStatus("");
+  timer = setTimeout(() => { if (my === run) start(i, "after", 0); }, Math.max(0, (st + p.end - ctx.currentTime) * 1000) + 30);
+  if (through && i + 1 < SONGS.length) load(songFile(i + 1, mix), SONGS[i + 1].dur).catch(() => {});
+}
+
+function playDialogue(i, which, k, my) {
+  const lines = dlgLines(i, which);
+  dlg = { i, which, lines, k };
+  playing = true; ui(); showDialogue(); setStatus("");
+  const step = () => {
+    if (my !== run) return;
+    while (dlg.k < lines.length && !lines[dlg.k].x) dlg.k++;
+    if (dlg.k >= lines.length) { dlg = null; return which === "before" ? start(i, "song", 0) : advance(my); }
+    markDialogue(); const d = lineSecs(lines[dlg.k]); dlg.until = performance.now() + d * 1000; dlg.len = d;
+    timer = setTimeout(() => { dlg.k++; step(); }, d * 1000);
+  };
+  step();
+}
+
+function posNow() { return plan && playing ? ctx.currentTime - plan.start : (plan ? plan.paused || 0 : 0); }
+function pause() {
+  if (!playing) return;
+  if (phase === "song" && plan) { const p = posNow(); stopEverything(); plan.paused = p; }
+  else { const k = dlg ? dlg.k : 0; stopEverything(); if (dlg) dlg.k = k; }
+  ui(); setStatus("Paused.");
+}
+function resume() {
+  if (phase === "gap") return start(Math.min(cur + 1, SONGS.length - 1), "before", 0);
+  if ((phase === "before" || phase === "after") && dlg) return start(cur, phase, dlg.k);
+  if (plan && plan.i === cur && plan.paused) return start(cur, "song", plan.paused);
+  start(cur, "before", 0);
+}
+async function playLoop() {
+  stopEverything(); audio(); await ctx.resume(); const my = run;
+  try { const b = await load(loopFile(cur), SONGS[cur].loopDur); if (my !== run) return; loopStart = ctx.currentTime + 0.05; src(b, loopStart, 0, true); loopMode = true; $("loop").setAttribute("aria-pressed", "true"); ui(); setStatus(""); }
+  catch (e) { setStatus("Couldn't load the Loop."); }
+}
+
+// ---------------- rendering ----------------
+function setStatus(t) { $("status").textContent = t || (through ? "Playing through the act." : "Playing this song only."); }
+function ui() {
+  $("play").textContent = playing || loopMode ? "Pause" : "Play";
+  $("prev").disabled = cur === 0; $("next").disabled = cur === SONGS.length - 1;
+  $("skip").hidden = !(dlg && playing);
+}
+function renderAct() {
+  SONGS = ACTS[act].songs;
+  document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.act === act)));
+  $("actTitle").textContent = ACTS[act].title;
+  const tot = SONGS.reduce((a, s) => a + s.dur, 0);
+  $("actMeta").innerHTML = "";
+  [SONGS.length + " songs", "about " + Math.round(tot / 60) + " minutes", "Each song starts with its count-in"].forEach(t => { const s = document.createElement("span"); s.textContent = t; $("actMeta").append(s); });
+  cur = 0; plan = null; dlg = null; renderSongs(); renderNow(); ui();
+}
+let lineEls = [], lastLine = -2, lyrMode = "lyrics";
+function renderNow() {
+  const s = SONGS[cur];
+  $("npScene").textContent = s.scene + " · " + s.singer;
+  $("npTitle").textContent = s.title;
+  document.querySelectorAll(".song").forEach((el, i) => el.classList.toggle("cur", i === cur));
+  showLyrics();
+  const p = makePlan(cur), z = $("soloZone");
+  if (p.take) { z.hidden = false; z.style.left = (p.dur / p.end * 100) + "%"; z.style.width = ((p.end - p.dur) / p.end * 100) + "%"; } else z.hidden = true;
+  $("fill").style.width = "0%";
+  $("pos").innerHTML = "<b>Bar 1 · beat 1</b><br>0:00 / " + fmtT(p.end);
+  $("stage").textContent = "Ready"; $("stage").className = "stage";
+  if (!$("recPanel").hidden) recLabels();
+}
+function showLyrics() {
+  if (lyrMode === "lyrics" && lineEls.length && lineEls.song === cur + act) return;
+  lyrMode = "lyrics";
+  const s = SONGS[cur], box = $("lyrics"); box.innerHTML = ""; lineEls = []; lineEls.song = cur + act; lastLine = -2;
+  $("lyrHead").textContent = s.lyrics ? "Lyrics · " + s.singer : "Lyrics";
+  if (s.lyrics) {
+    s.lyrics.forEach(([b, t]) => {
+      const d = document.createElement("div"); d.className = "line"; d.tabIndex = 0;
+      const at = document.createElement("span"); at.className = "at"; at.textContent = (Math.floor(b / s.meter) + 1) + "." + (Math.floor(b % s.meter) + 1);
+      const tx = document.createElement("span"); tx.className = "tx"; tx.textContent = t;
+      d.append(at, tx);
+      const go = () => start(cur, "song", Math.max(0, (b - 1) * 60 / s.bpm));
+      d.onclick = go; d.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } };
+      box.append(d); lineEls.push(d);
+    });
+    $("lyrNote").textContent = "Tap a line to jump there." + (hasDlg(cur, "before") || hasDlg(cur, "after") ? " Turn on Play dialogue to read this scene's lines too." : "");
+  } else $("lyrNote").textContent = s.title + " has no sung lyrics.";
+}
+function showDialogue() {
+  lyrMode = "dialogue"; lineEls = []; lineEls.song = null;
+  const box = $("lyrics"); box.innerHTML = "";
+  const s = SONGS[cur];
+  $("lyrHead").textContent = "Dialogue · " + s.scene + (dlg.which === "before" ? " · before " : " · after ") + s.title;
+  dlg.lines.forEach((l, k) => {
+    if (l.head) { const h = document.createElement("div"); h.className = "sub-h"; h.textContent = l.head; box.append(h); lineEls.push(h); return; }
+    const [who, dir, text] = l.x;
+    const d = document.createElement("div"); d.className = "line dlgline"; d.tabIndex = 0;
+    const w = document.createElement("span"); w.className = "who " + (["Robbie", "Melissa", "Clive"].includes(who) ? who : "other"); w.textContent = who;
+    const tx = document.createElement("span"); tx.className = "tx";
+    if (dir) { const di = document.createElement("span"); di.className = "dir"; di.textContent = "(" + dir + ") "; tx.append(di); }
+    tx.append(document.createTextNode(text));
+    d.append(w, tx);
+    const go = () => start(cur, dlg ? dlg.which : "before", k);
+    d.onclick = go; d.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } };
+    box.append(d); lineEls.push(d);
+  });
+  $("lyrNote").textContent = "Lines advance at reading pace. Tap a line to jump, or Skip dialogue to go straight to the music.";
+}
+function markDialogue() {
+  lineEls.forEach((el, k) => { el.classList.toggle("now", k === dlg.k); el.classList.toggle("past", k < dlg.k); });
+  const el = lineEls[dlg.k], box = $("lyrics");
+  if (el) box.scrollTop = el.offsetTop - box.offsetTop - box.clientHeight / 2 + el.clientHeight / 2;
+}
+function showLine(beats) {
+  const s = SONGS[cur]; if (!s.lyrics || lyrMode !== "lyrics") return;
+  let c = -1; s.lyrics.forEach(([b], i) => { if (beats >= b) c = i; });
+  if (c === lastLine) return; lastLine = c;
+  lineEls.forEach((el, i) => { el.classList.toggle("now", i === c); el.classList.toggle("past", i < c); });
+  if (c >= 0) { const box = $("lyrics"), el = lineEls[c]; box.scrollTop = el.offsetTop - box.offsetTop - box.clientHeight / 2 + el.clientHeight / 2; }
+}
+function tick() {
+  const s = SONGS[cur], st = $("stage");
+  if (rec.state === "recording") { /* recorder draws its own status */ }
+  else if (loopMode) {
+    const p = (ctx.currentTime - loopStart) % s.loopDur, spb = 60 / s.bpm;
+    $("pos").innerHTML = "<b>Loop · bar " + (Math.floor(p / spb / s.meter) + 1) + " of " + s.loopBars + "</b><br>repeating";
+    st.textContent = "Loop"; st.className = "stage count";
+  } else if (dlg && (phase === "before" || phase === "after")) {
+    st.textContent = playing ? "Dialogue" : "Paused"; st.className = "stage dlg";
+    const n = dlg.lines.filter(l => l.x).length, k = dlg.lines.slice(0, dlg.k + 1).filter(l => l.x).length;
+    $("pos").innerHTML = "<b>Line " + Math.min(k, n) + " of " + n + "</b><br>" + (dlg.which === "before" ? "before the song" : "after the song");
+  } else if (plan) {
+    const pos = posNow(), p = plan;
+    $("fill").style.width = Math.min(100, pos / p.end * 100) + "%";
+    $("bar").setAttribute("aria-valuenow", String(Math.round(pos / p.end * 100)));
+    if (pos < p.dur) {
+      const beats = pos / p.spb;
+      $("pos").innerHTML = "<b>Bar " + (Math.floor(beats / s.meter) + 1) + " · beat " + (Math.floor(beats % s.meter) + 1) + "</b><br>" + fmtT(pos) + " / " + fmtT(p.end);
+      st.textContent = playing ? (vocalTake(cur) ? "Song · " + vocalTake(cur).handle : "Song") : "Paused"; st.className = "stage";
+      showLine(beats);
+    } else if (p.take && pos < p.countAt) { st.textContent = "Pause"; st.className = "stage"; $("pos").innerHTML = "<b>Solo coming up</b><br>" + fmtT(pos) + " / " + fmtT(p.end); }
+    else if (p.take && pos < p.loopAt) { const k = Math.floor((pos - p.countAt) / p.spb) + 1; st.textContent = "Count-in"; st.className = "stage count"; $("pos").innerHTML = "<b>Count-in · " + k + "</b><br>" + fmtT(pos) + " / " + fmtT(p.end); }
+    else if (p.take) { const pass = Math.min(p.passes, Math.floor((pos - p.loopAt) / s.loopDur) + 1); st.textContent = "Solo · " + p.take.handle; st.className = "stage solo"; $("pos").innerHTML = "<b>Solo · pass " + pass + " of " + p.passes + "</b><br>" + fmtT(pos) + " / " + fmtT(p.end); }
+  }
+  requestAnimationFrame(tick);
+}
+function renderWho() {
+  $("whoBar").textContent = me.handle ? "Signed in as " + me.handle : (BACKEND_URL ? "Record a take to sign in" : "");
+}
+function renderSongs() {
+  const box = $("songs"); box.innerHTML = "";
+  SONGS.forEach((s, i) => {
+    const row = document.createElement("div"); row.className = "song" + (i === cur ? " cur" : "");
+    const num = document.createElement("span"); num.className = "num"; num.textContent = s.n;
+    const name = document.createElement("button"); name.className = "name"; name.textContent = s.title; name.onclick = () => start(i, "before", 0);
+    const nd = (s.dlg.before.length + s.dlg.during.length + s.dlg.after.length);
+    const sub = document.createElement("span"); sub.className = "sub"; sub.textContent = s.singer + " · " + s.meter + "/4 · " + Math.round(s.bpm) + " BPM · " + fmtT(s.dur) + (nd ? " · " + nd + " dialogue lines" : "");
+    const picksEl = document.createElement("div"); picksEl.className = "picks";
+    [["vocal", "Vocal", "Guide vocal", "No vocal takes"], ["solo", "Solo after song", "None", "No solos yet"]].forEach(([kind, lab, none, empty]) => {
+      const takes = takesFor(i, kind), box2 = document.createElement("label"); box2.className = "pick";
+      const l = document.createElement("span"); l.textContent = lab;
+      const sel = document.createElement("select");
+      const o0 = document.createElement("option"); o0.value = ""; o0.textContent = takes.length ? none : empty; sel.append(o0);
+      takes.forEach(t => { const o = document.createElement("option"); o.value = t.id; o.textContent = takeLabel(t); sel.append(o); });
+      sel.value = picks[kind][key(act, s.n)] || ""; sel.disabled = !takes.length;
+      sel.onchange = () => { picks[kind][key(act, s.n)] = sel.value; if (i === cur) { const was = playing && phase === "song", p = posNow(); renderNow(); if (was && p < s.dur) start(i, "song", p); } };
+      box2.append(l, sel); picksEl.append(box2);
+    });
+    row.append(num, name, sub, picksEl); box.append(row);
+  });
+}
+
+// ---------------- controls ----------------
+$("play").onclick = () => { if (rec.state !== "idle") return; if (loopMode) { stopEverything(); ui(); return; } if (playing) return pause(); resume(); };
+$("prev").onclick = () => { if (cur > 0) { const was = playing; stopEverything(); was ? start(cur - 1, "before", 0) : select(cur - 1); } };
+$("next").onclick = () => { if (cur < SONGS.length - 1) { const was = playing; stopEverything(); was ? start(cur + 1, "before", 0) : select(cur + 1); } };
+$("skip").onclick = () => { if (dlg) { const w = dlg.which, i = dlg.i; stopEverything(); dlg = null; w === "before" ? start(i, "song", 0) : advance(run); } };
+$("loop").onclick = () => { if (loopMode) { stopEverything(); ui(); return; } playLoop(); };
+$("through").onclick = () => { through = !through; $("through").setAttribute("aria-pressed", String(through)); setStatus(); };
+$("dlgToggle").setAttribute("aria-pressed", String(dialogueOn));
+$("dlgToggle").onclick = () => { dialogueOn = !dialogueOn; store.set("mp_dlg", dialogueOn ? "1" : "0"); $("dlgToggle").setAttribute("aria-pressed", String(dialogueOn)); };
+document.querySelectorAll(".seg button[data-mix]").forEach(b => b.onclick = () => {
+  mix = b.dataset.mix; document.querySelectorAll(".seg button[data-mix]").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+  if (playing && phase === "song") start(cur, "song", posNow());
+});
+document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
+  if (b.dataset.act === act || rec.state !== "idle") return;
+  stopEverything(); act = b.dataset.act; store.set("mp_act", act); renderAct(); setStatus("Press Play.");
+});
+function seekFrac(f) {
+  if (phase !== "song") return;
+  const p = makePlan(cur), pos = Math.max(0, Math.min(p.end - 0.05, f * p.end));
+  if (playing) start(cur, "song", pos); else plan = Object.assign(p, { start: 0, paused: pos });
+}
+$("bar").addEventListener("click", e => { const r = $("bar").getBoundingClientRect(); seekFrac((e.clientX - r.left) / r.width); });
+$("bar").addEventListener("keydown", e => { if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return; e.preventDefault(); const p = makePlan(cur); seekFrac((posNow() + (e.key === "ArrowRight" ? 5 : -5)) / p.end); });
+function select(i) { stopEverything(); cur = i; plan = null; dlg = null; phase = "song"; renderNow(); ui(); setStatus("Press Play."); }
+
+// ---------------- recorder ----------------
+// Captures the input inside the same audio clock as playback, so takes line up with the band.
+const rec = { state: "idle", kind: "vocal", stream: null, node: null, srcNode: null, chunks: [], t0: 0, take: null, i: 0, act: "1" };
+const WORKLET = `class Cap extends AudioWorkletProcessor{constructor(){super();this.buf=[];this.n=0;this.f0=-1;this.on=true;this.port.onmessage=e=>{if(e.data==="stop"){this.flush();this.on=false;}};}
+flush(){if(this.n){this.port.postMessage({f:this.f0,d:this.buf});this.buf=[];this.n=0;this.f0=-1;}}
+process(inp){const ch=inp[0];if(ch&&ch.length){if(this.f0<0)this.f0=currentFrame;this.buf.push(ch.map(c=>c.slice(0)));this.n+=ch[0].length;if(this.n>=4096)this.flush();}return this.on;}}
+registerProcessor("cap",Cap);`;
+let workletReady = null;
+async function openInput() {
+  audio(); await ctx.resume();
+  if (!workletReady) workletReady = ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([WORKLET], { type: "application/javascript" })));
+  await workletReady;
+  const dev = $("recDevice").value;
+  if (rec.stream) rec.stream.getTracks().forEach(t => t.stop());
+  rec.stream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: dev ? { exact: dev } : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: { ideal: 2 } } });
+  listDevices();
+  rec.srcNode = ctx.createMediaStreamSource(rec.stream);
+}
+async function listDevices() {
+  try {
+    const ds = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "audioinput");
+    const sel = $("recDevice"), was = sel.value || store.get("mp_dev") || "";
+    sel.innerHTML = ""; const o0 = document.createElement("option"); o0.value = ""; o0.textContent = "Default input"; sel.append(o0);
+    ds.forEach(d => { if (!d.deviceId || d.deviceId === "default") return; const o = document.createElement("option"); o.value = d.deviceId; o.textContent = d.label || "Input " + (sel.length); sel.append(o); });
+    sel.value = [...sel.options].some(o => o.value === was) ? was : "";
+  } catch (e) {}
+}
+function capture(onChunk) {
+  const node = new AudioWorkletNode(ctx, "cap", { numberOfInputs: 1, numberOfOutputs: 1, channelCountMode: "explicit", channelCount: 2 });
+  const sink = ctx.createGain(); sink.gain.value = 0; node.connect(sink); sink.connect(ctx.destination);
+  node.port.onmessage = e => onChunk(e.data);
+  rec.srcNode.connect(node);
+  return { stop() { node.port.postMessage("stop"); setTimeout(() => { try { rec.srcNode.disconnect(node); node.disconnect(); sink.disconnect(); } catch (e) {} }, 200); } };
+}
+function pickChannel(frames) { const ch = Math.min(+$("recChannel").value, frames.length - 1); return frames[ch]; }
+function assemble(chunks, fromFrame, toFrame) {
+  const len = Math.max(0, Math.floor(toFrame - fromFrame)), outB = new Float32Array(len);
+  for (const c of chunks) {
+    let f = c.f;
+    for (const fr of c.d) { const data = pickChannel(fr); for (let j = 0; j < data.length; j++) { const at = f + j - fromFrame; if (at >= 0 && at < len) outB[at] = data[j]; } f += data.length; }
+  }
+  return outB;
+}
+async function toWav24k(samples, sr) {
+  const n = Math.ceil(samples.length * 24000 / sr);
+  const off = new OfflineAudioContext(1, Math.max(1, n), 24000);
+  const b = off.createBuffer(1, samples.length || 1, sr); b.copyToChannel(samples.length ? samples : new Float32Array(1), 0);
+  const s = off.createBufferSource(); s.buffer = b; s.connect(off.destination); s.start();
+  const r = (await off.startRendering()).getChannelData(0);
+  const buf = new ArrayBuffer(44 + r.length * 2), v = new DataView(buf);
+  const w = (o, t) => { for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); };
+  w(0, "RIFF"); v.setUint32(4, 36 + r.length * 2, true); w(8, "WAVE"); w(12, "fmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, 24000, true); v.setUint32(28, 48000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, r.length * 2, true);
+  for (let i = 0; i < r.length; i++) { const x = Math.max(-1, Math.min(1, r[i])); v.setInt16(44 + i * 2, x < 0 ? x * 0x8000 : x * 0x7fff, true); }
+  return new Blob([buf], { type: "audio/wav" });
+}
+function meterFrom(chunks) { const c = chunks[chunks.length - 1]; if (!c) return; const d = pickChannel(c.d[c.d.length - 1]); let m = 0; for (const x of d) m = Math.max(m, Math.abs(x)); $("recMeter").style.width = Math.min(100, m * 140) + "%"; }
+
+function fillPlayers() {
+  const sel = $("recPlayer"), was = me.handle;
+  sel.innerHTML = "";
+  PLAYERS.forEach(p => { const o = document.createElement("option"); o.value = p; o.textContent = p; sel.append(o); });
+  const o = document.createElement("option"); o.value = "__new"; o.textContent = "New player…"; sel.append(o);
+  sel.value = PLAYERS.includes(was) ? was : (PLAYERS.length && was ? "__new" : "__new");
+  if (was && !PLAYERS.includes(was)) $("recNewHandle").value = was;
+  $("newPlayerWrap").hidden = sel.value !== "__new";
+}
+$("recPlayer").onchange = () => { $("newPlayerWrap").hidden = $("recPlayer").value !== "__new"; };
+function recLabels() {
+  const s = SONGS[cur];
+  $("recKindLabel").textContent = rec.kind === "vocal" ? "Record a vocal" : "Record a guitar solo";
+  $("recSongLabel").textContent = ACTS[act].title + " · " + s.n + " " + s.title;
+  $("recChannel").value = store.get("mp_ch_" + rec.kind) || (rec.kind === "solo" ? "1" : "0");
+  $("recNote").textContent = rec.kind === "vocal"
+    ? "You'll hear the Band mix from the top of the song while your voice is recorded. Use headphones so the band doesn't leak into your take."
+    : "You'll hear two bars of click, then the Loop repeats while you play. Press Stop when you're done. Plug your guitar into the interface's instrument input and use its direct monitoring to hear yourself.";
+}
+function openRecorder(kind) {
+  if (rec.state === "recording") return;
+  stopEverything(); ui();
+  rec.kind = kind; $("recPanel").hidden = false; recLabels(); fillPlayers();
+  $("recPin").value = me.pin; $("recLatency").value = store.get("mp_lat") || "0";
+  $("recPrivacy").value = store.get("mp_priv") || "public";
+  document.querySelectorAll("button.rec").forEach(b => b.classList.remove("on")); $(kind === "vocal" ? "recVocal" : "recSolo").classList.add("on");
+  listDevices(); $("recPanel").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+$("recVocal").onclick = () => openRecorder("vocal");
+$("recSolo").onclick = () => openRecorder("solo");
+$("recClose").onclick = () => { if (rec.state === "recording") return; $("recPanel").hidden = true; document.querySelectorAll("button.rec").forEach(b => b.classList.remove("on")); if (rec.stream) { rec.stream.getTracks().forEach(t => t.stop()); rec.stream = null; } };
+$("recLatency").onchange = () => store.set("mp_lat", $("recLatency").value);
+$("recPrivacy").onchange = () => store.set("mp_priv", $("recPrivacy").value);
+$("recChannel").onchange = () => store.set("mp_ch_" + rec.kind, $("recChannel").value);
+$("recDevice").onchange = () => store.set("mp_dev", $("recDevice").value);
+
+function handleAndPin() {
+  const h = ($("recPlayer").value === "__new" ? $("recNewHandle").value : $("recPlayer").value).trim();
+  const pin = $("recPin").value.trim();
+  if (h.length < 2) return [null, "Enter your name (at least 2 letters)."];
+  if (!/^\d{4,8}$/.test(pin)) return [null, "Choose a PIN of 4 to 8 digits."];
+  return [{ handle: h, pin }, null];
+}
+
+$("recGo").onclick = async () => {
+  if (rec.state === "recording") return stopRecording();
+  try { await openInput(); } catch (e) { $("recNote").textContent = "The browser couldn't open your microphone. Allow microphone access for this page and try again."; return; }
+  const i = cur, s = SONGS[i], my = ++run; stopAll();
+  rec.i = i; rec.act = act; rec.chunks = []; rec.take = null;
+  let bed;
+  try { bed = rec.kind === "vocal" ? await load(songFile(i, "band"), s.dur) : await load(loopFile(i), s.loopDur); }
+  catch (e) { $("recNote").textContent = "Couldn't load the backing track. Check your connection."; return; }
+  const spb = 60 / s.bpm, bar = spb * s.meter, t0 = ctx.currentTime + 0.4;
+  rec.cap = capture(c => { rec.chunks.push(c); meterFrom(rec.chunks); });
+  if (rec.kind === "vocal") { rec.t0 = t0; src(bed, t0, 0); rec.autoStop = setTimeout(stopRecording, (s.dur + 0.6) * 1000); }
+  else { for (let k = 0; k < 2 * s.meter; k++) src(makeClick(k % s.meter === 0), t0 + k * spb, 0); rec.t0 = t0 + 2 * bar; src(bed, rec.t0, 0, true); }
+  rec.state = "recording"; $("recGo").textContent = "Stop"; $("recGo").classList.add("on");
+  ["recListen", "recSave", "recDiscard", "recCalibrate"].forEach(id => $(id).disabled = true);
+  $("stage").textContent = "Recording"; $("stage").className = "stage rec";
+  rec.ticker = setInterval(() => { const t = Math.max(0, ctx.currentTime - rec.t0); $("pos").innerHTML = "<b>Recording</b><br>" + fmtT(t) + (rec.kind === "vocal" ? " / " + fmtT(s.dur) : ""); }, 200);
+};
+function stopRecording() {
+  if (rec.state !== "recording") return;
+  clearTimeout(rec.autoStop); clearInterval(rec.ticker);
+  const endT = ctx.currentTime; stopAll(); rec.cap.stop();
+  setTimeout(async () => {
+    const sr = ctx.sampleRate, lat = (+$("recLatency").value || 0) / 1000;
+    const samples = assemble(rec.chunks, rec.t0 * sr, endT * sr);
+    const dur = samples.length / sr;
+    if (dur < 1) { rec.state = "idle"; resetRecUI(); $("recNote").textContent = "That take was too short. Try again."; return; }
+    const blob = await toWav24k(samples, sr);
+    const buf = await ctx.decodeAudioData(await blob.arrayBuffer());
+    rec.take = { blob, buf, dur: Math.max(0, dur - lat), offset: lat };
+    rec.state = "review"; resetRecUI();
+    ["recListen", "recSave", "recDiscard"].forEach(id => $(id).disabled = false);
+    $("recNote").textContent = "Recorded " + fmtT(dur) + ". Listen back, then save it or discard it.";
+    $("recMeter").style.width = "0%";
+  }, 300);
+}
+function resetRecUI() { $("recGo").textContent = "Record"; $("recGo").classList.remove("on"); $("recCalibrate").disabled = false; $("stage").textContent = "Ready"; $("stage").className = "stage"; }
+$("recDiscard").onclick = () => { stopAll(); rec.take = null; rec.state = "idle"; ["recListen", "recSave", "recDiscard"].forEach(id => $(id).disabled = true); $("recNote").textContent = "Take discarded."; };
+$("recListen").onclick = async () => {
+  if (!rec.take) return; stopAll(); const s = SONGS[rec.i];
+  if ($("recListen").textContent === "Stop") { $("recListen").textContent = "Listen back"; return; }
+  const t0 = ctx.currentTime + 0.1;
+  if (rec.kind === "vocal") { src(await load(songFile(rec.i, "band"), s.dur), t0, 0); }
+  else { const l = src(await load(loopFile(rec.i), s.loopDur), t0, 0, true); l.stop(t0 + Math.max(1, Math.round(rec.take.dur / s.loopDur)) * s.loopDur); }
+  const n = src(rec.take.buf, t0, rec.take.offset);
+  $("recListen").textContent = "Stop"; n.onended = () => { $("recListen").textContent = "Listen back"; };
+};
+$("recSave").onclick = async () => {
+  if (!rec.take) return;
+  const s = ACTS[rec.act].songs[rec.i];
+  if (!BACKEND_URL) {
+    const a = document.createElement("a"); a.href = URL.createObjectURL(rec.take.blob);
+    a.download = "MagicPick_A" + rec.act + "-" + s.n + "_" + rec.kind + "_" + new Date().toISOString().slice(0, 16).replace(/[:T]/g, "") + ".wav"; a.click();
+    $("recNote").textContent = "The takes library isn't connected yet, so the take was downloaded to this computer.";
+    return;
+  }
+  const [who, err] = handleAndPin(); if (err) { $("recNote").textContent = err; return; }
+  $("recSave").disabled = true; $("recNote").textContent = "Saving to the takes library…";
+  try {
+    const b64 = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(",")[1]); fr.onerror = rej; fr.readAsDataURL(rec.take.blob); });
+    const j = await api("upload", { handle: who.handle, pin: who.pin, act: +rec.act, song: s.n, kind: rec.kind, private: $("recPrivacy").value === "private", dur: rec.take.dur, offset: rec.take.offset, mime: "audio/wav", data: b64 });
+    me = { handle: j.handle || who.handle, pin: who.pin }; store.set("mp_handle", me.handle); store.set("mp_pin", me.pin);
+    takeBufs.set(j.id, Promise.resolve(rec.take.buf));
+    rec.take = null; rec.state = "idle"; ["recListen", "recSave", "recDiscard"].forEach(id => $(id).disabled = true);
+    await refreshTakes();
+    picks[rec.kind][key(rec.act, s.n)] = j.id; renderSongs();
+    $("recNote").textContent = "Saved. It's selected in the running order" + ($("recPrivacy").value === "private" ? " and only you and the director can hear it." : ".");
+  } catch (e) {
+    $("recSave").disabled = false;
+    $("recNote").textContent = e.message === "bad_pin" ? "That name is taken and the PIN doesn't match. Check your PIN or pick a different name." : "Couldn't save the take (" + e.message + "). Try again in a moment.";
+  }
+};
+$("recCalibrate").onclick = async () => {
+  if (rec.state === "recording") return;
+  try { await openInput(); } catch (e) { $("calNote").textContent = "Microphone access is needed to measure latency."; return; }
+  $("recCalibrate").disabled = true; $("calNote").textContent = "Measuring… (3 clicks)";
+  const sr = ctx.sampleRate, results = [];
+  for (let k = 0; k < 3; k++) {
+    const chunks = [], cap = capture(c => chunks.push(c)), tc = ctx.currentTime + 0.5;
+    const b = ctx.createBuffer(1, Math.round(sr * 0.02), sr), d = b.getChannelData(0); for (let j = 0; j < d.length; j++) d[j] = (j % 2 ? 1 : -1) * 0.9 * Math.exp(-j / (sr * 0.004));
+    const n = ctx.createBufferSource(); n.buffer = b; n.connect(out); n.start(tc);
+    await new Promise(r => setTimeout(r, 1300)); cap.stop(); await new Promise(r => setTimeout(r, 250));
+    const sig = assemble(chunks, (tc - 0.2) * sr, (tc + 0.6) * sr);
+    let noise = 0; for (let j = 0; j < 0.15 * sr; j++) noise = Math.max(noise, Math.abs(sig[j]));
+    const th = Math.max(0.02, noise * 4); let hit = -1;
+    for (let j = Math.floor(0.2 * sr); j < sig.length; j++) if (Math.abs(sig[j]) > th) { hit = j; break; }
+    if (hit > 0) results.push((hit - 0.2 * sr) / sr * 1000);
+  }
+  $("recCalibrate").disabled = false;
+  if (results.length < 2) { $("calNote").textContent = "Couldn't hear the clicks. Turn your speakers up (not headphones) and try again, or enter a value by hand."; return; }
+  results.sort((a, b) => a - b); const ms = Math.round(results[Math.floor(results.length / 2)]);
+  $("recLatency").value = ms; store.set("mp_lat", String(ms)); $("calNote").textContent = "Measured " + ms + " ms. Saved for this device.";
+};
+
+// ---------------- start ----------------
+renderAct(); renderWho(); setStatus("Press Play. Songs load as you reach them.");
+refreshTakes();
+</script>
+</body>
+</html>
