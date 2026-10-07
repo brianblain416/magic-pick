@@ -60,6 +60,10 @@ button[aria-pressed="true"].toggle { background: var(--spot); color: var(--spot-
 .bar { position: relative; height: 10px; border-radius: 5px; background: var(--bg); border: 1px solid var(--line); overflow: hidden; cursor: pointer; }
 .bar i { position: absolute; inset: 0 auto 0 0; background: var(--accent); width: 0; }
 .bar .soloZone { position: absolute; top: 0; bottom: 0; background: var(--solo); opacity: .25; }
+.signbox { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: end; }
+.signbox label.f { flex: 1 1 200px; }
+.signbox .note { flex: 1 1 100%; }
+.muted { color: var(--muted); }
 .note { font-size: 14px; color: var(--muted); margin: 0; }
 .lyrics { display: grid; gap: 2px; max-height: 380px; overflow-y: auto; }
 .line { display: grid; grid-template-columns: 64px minmax(0,1fr); gap: 12px; align-items: baseline; padding: 7px 10px; border-radius: 8px; cursor: pointer; }
@@ -153,14 +157,23 @@ label.f input, label.f select { color: var(--ink); }
       <button id="recClose">Close</button>
     </div>
     <div class="grid2">
-      <label class="f">Your name (handle)
-        <select id="recPlayer"></select>
-      </label>
-      <label class="f" id="newPlayerWrap" hidden>New handle
-        <input id="recNewHandle" maxlength="24" autocomplete="nickname" placeholder="e.g. Brian">
-      </label>
+      <div class="signbox" id="signedInBox" hidden>
+        <span>Recording as <b id="meName"></b> <span class="muted" id="meEmail"></span></span>
+        <button id="signOut" class="small">Sign out</button>
+      </div>
+      <div class="signbox" id="signInBox" hidden>
+        <label class="f">Your name (as it appears in the running order)
+          <input id="siName" maxlength="24" autocomplete="nickname" list="playersList" placeholder="e.g. Brian">
+        </label>
+        <label class="f">Your email
+          <input id="siEmail" type="email" maxlength="120" autocomplete="email" placeholder="you@example.com">
+        </label>
+        <button id="siSend">Email me a sign-in link</button>
+        <p class="note" id="siNote">One time on each computer or phone. You can record now and save once you're signed in.</p>
+        <datalist id="playersList"></datalist>
+      </div>
       <label class="f">Who can hear this take
-        <select id="recPrivacy"><option value="public">Everyone (public)</option><option value="private">Only me (on this device) and the director</option></select>
+        <select id="recPrivacy"><option value="public">Everyone (public)</option><option value="private">Only me and the director (private)</option></select>
       </label>
       <label class="f">Input
         <select id="recDevice"><option value="">Default input</option></select>
@@ -211,9 +224,9 @@ const $ = id => document.getElementById(id);
 const fmtT = s => { s = Math.max(0, s); const m = Math.floor(s / 60), r = Math.floor(s % 60); return m + ":" + String(r).padStart(2, "0"); };
 const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
 
-// admin key arrives once as ?admin=KEY and is remembered on this device
-(() => { const p = new URLSearchParams(location.search); if (p.get("admin")) { store.set("mp_admin", p.get("admin")); history.replaceState(null, "", location.pathname); } })();
-const ADMIN = store.get("mp_admin") || "";
+// a sign-in link arrives as ?signin=TOKEN; it's handled once the page has loaded
+const SIGNIN_TOKEN = new URLSearchParams(location.search).get("signin");
+if (SIGNIN_TOKEN) history.replaceState(null, "", location.pathname);
 
 let act = store.get("mp_act") === "2" ? "2" : "1";
 let SONGS = ACTS[act].songs;
@@ -259,21 +272,25 @@ function makeClick(accent) {
 // ---------------- takes (Google Drive backend) ----------------
 let TAKES = []; // {id, handle, act, song, kind, private, created, dur, offset, file?}
 let PLAYERS = [];
-let me = { handle: store.get("mp_handle") || "" };
-// A random key kept in this browser. Private takes recorded here can be heard here (and by the director).
+let me = { handle: "", email: "" }; // filled in by the takes library when this device is signed in
+let IS_ADMIN = false;
+// A random key kept in this browser. Signing in by email links it to the singer.
 const DEVICE_KEY = store.get("mp_key") || (() => { const k = Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, "0")).join(""); store.set("mp_key", k); return k; })();
 const picks = { vocal: {}, solo: {} }; // key act-song -> take id
 const key = (a, n) => a + "-" + n;
 async function api(action, body) {
   if (!BACKEND_URL) throw new Error("no_backend");
-  const r = await fetch(BACKEND_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(Object.assign({ action, admin: ADMIN || undefined }, body || {})) });
+  const r = await fetch(BACKEND_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(Object.assign({ action, key: DEVICE_KEY }, body || {})) });
   const j = await r.json();
   if (!j.ok) throw new Error(j.error || "failed");
   return j;
 }
 async function refreshTakes() {
   let remote = [];
-  try { const j = await api("list", { key: DEVICE_KEY }); remote = j.takes || []; PLAYERS = j.players || []; }
+  try {
+    const j = await api("list"); remote = j.takes || []; PLAYERS = j.players || [];
+    me = j.me ? { handle: j.me.name, email: j.me.email } : { handle: "", email: "" }; IS_ADMIN = !!j.admin;
+  }
   catch (e) { if (e.message !== "no_backend") setStatus("Couldn't reach the takes library. Playback still works."); }
   TAKES = LEGACY_TAKES.concat(remote);
   for (const t of TAKES) if (t.handle && !PLAYERS.some(p => p.toLowerCase() === t.handle.toLowerCase())) PLAYERS.push(t.handle);
@@ -288,7 +305,7 @@ function loadTake(t) {
   if (!takeBufs.has(t.id)) {
     const p = (async () => {
       if (t.file) return fetchDecode(t.file, t.dur);
-      const j = await api("get", { id: t.id, key: DEVICE_KEY });
+      const j = await api("get", { id: t.id });
       const bin = Uint8Array.from(atob(j.data), c => c.charCodeAt(0));
       return audio().decodeAudioData(bin.buffer);
     })().catch(e => { takeBufs.delete(t.id); throw e; });
@@ -511,7 +528,7 @@ function tick() {
   requestAnimationFrame(tick);
 }
 function renderWho() {
-  $("whoBar").textContent = me.handle ? "Signed in as " + me.handle : (BACKEND_URL ? "Record a take to sign in" : "");
+  $("whoBar").textContent = me.handle ? "Signed in as " + me.handle + (IS_ADMIN ? " (director)" : "") : "";
 }
 function renderSongs() {
   const box = $("songs"); box.innerHTML = "";
@@ -621,15 +638,40 @@ async function toWav24k(samples, sr) {
 function meterFrom(chunks) { const c = chunks[chunks.length - 1]; if (!c) return; const d = pickChannel(c.d[c.d.length - 1]); let m = 0; for (const x of d) m = Math.max(m, Math.abs(x)); $("recMeter").style.width = Math.min(100, m * 140) + "%"; }
 
 function fillPlayers() {
-  const sel = $("recPlayer"), was = me.handle;
-  sel.innerHTML = "";
-  PLAYERS.forEach(p => { const o = document.createElement("option"); o.value = p; o.textContent = p; sel.append(o); });
-  const o = document.createElement("option"); o.value = "__new"; o.textContent = "New player…"; sel.append(o);
-  sel.value = PLAYERS.includes(was) ? was : (PLAYERS.length && was ? "__new" : "__new");
-  if (was && !PLAYERS.includes(was)) $("recNewHandle").value = was;
-  $("newPlayerWrap").hidden = sel.value !== "__new";
+  const dl = $("playersList"); dl.innerHTML = "";
+  PLAYERS.forEach(p => { const o = document.createElement("option"); o.value = p; dl.append(o); });
+  const on = !!me.email, online = !!BACKEND_URL;
+  $("signedInBox").hidden = !on; $("signInBox").hidden = on || !online;
+  if (on) { $("meName").textContent = me.handle; $("meEmail").textContent = me.email; stopSigninWatch(); }
 }
-$("recPlayer").onchange = () => { $("newPlayerWrap").hidden = $("recPlayer").value !== "__new"; };
+// ---- email sign-in ----
+let signinWatch = null;
+function stopSigninWatch() { if (signinWatch) { clearInterval(signinWatch); signinWatch = null; } }
+$("siSend").onclick = async () => {
+  const name = $("siName").value.trim(), email = $("siEmail").value.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { $("siNote").textContent = "Enter your email address."; return; }
+  $("siSend").disabled = true; $("siNote").textContent = "Sending…";
+  try {
+    const j = await api("signin", { name, email });
+    $("siNote").textContent = "Check your email (" + email + ") and open the link on this " + (/Mobi/.test(navigator.userAgent) ? "phone" : "computer") + ". This page will notice when you're signed in.";
+    stopSigninWatch(); let n = 0;
+    signinWatch = setInterval(() => { if (++n > 180 || me.email) return stopSigninWatch(); refreshTakes(); }, 5000);
+  } catch (e) {
+    const m = { bad_name: "Enter your name (2–24 letters) — this is your first sign-in.", name_taken: "Someone else already uses that name. Pick a slightly different one.", bad_email: "That email address doesn't look right.", mail_quota: "The page has sent too many emails today. Try again tomorrow." }[e.message];
+    $("siNote").textContent = m || "Couldn't send the email (" + e.message + "). Try again in a moment.";
+  } finally { $("siSend").disabled = false; }
+};
+$("signOut").onclick = async () => {
+  try { await api("signout"); } catch (e) {}
+  me = { handle: "", email: "" }; IS_ADMIN = false; await refreshTakes();
+};
+window.addEventListener("focus", () => { if (BACKEND_URL && !me.email && signinWatch) refreshTakes(); });
+async function finishSignin() {
+  if (!SIGNIN_TOKEN || !BACKEND_URL) return;
+  try { const j = await api("verify", { token: SIGNIN_TOKEN }); setStatus("Signed in as " + j.me.name + ". You can record and save takes on this device."); }
+  catch (e) { setStatus(e.message === "link_used_or_expired" ? "That sign-in link has already been used or has expired. Open the recorder and send a new one." : "That sign-in link didn't work. Open the recorder and send a new one."); }
+  await refreshTakes();
+}
 function recLabels() {
   const s = SONGS[cur];
   $("recKindLabel").textContent = rec.kind === "vocal" ? "Record a vocal" : "Record a guitar solo";
@@ -656,11 +698,7 @@ $("recPrivacy").onchange = () => store.set("mp_priv", $("recPrivacy").value);
 $("recChannel").onchange = () => store.set("mp_ch_" + rec.kind, $("recChannel").value);
 $("recDevice").onchange = () => store.set("mp_dev", $("recDevice").value);
 
-function chosenHandle() {
-  const h = ($("recPlayer").value === "__new" ? $("recNewHandle").value : $("recPlayer").value).trim();
-  if (h.length < 2) return [null, "Enter your name (at least 2 letters)."];
-  return [{ handle: h }, null];
-}
+
 
 $("recGo").onclick = async () => {
   if (rec.state === "recording") return stopRecording();
@@ -717,17 +755,17 @@ $("recSave").onclick = async () => {
     $("recNote").textContent = "The takes library isn't connected yet, so the take was downloaded to this computer.";
     return;
   }
-  const [who, err] = chosenHandle(); if (err) { $("recNote").textContent = err; return; }
+  if (!me.email) await refreshTakes();
+  if (!me.email) { $("recNote").textContent = "Sign in first (above) — your take is kept here until you save it."; return; }
   $("recSave").disabled = true; $("recNote").textContent = "Saving to the takes library…";
   try {
     const b64 = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(",")[1]); fr.onerror = rej; fr.readAsDataURL(rec.take.blob); });
-    const j = await api("upload", { handle: who.handle, key: DEVICE_KEY, act: +rec.act, song: s.n, kind: rec.kind, private: $("recPrivacy").value === "private", dur: rec.take.dur, offset: rec.take.offset, mime: "audio/wav", data: b64 });
-    me = { handle: j.handle || who.handle }; store.set("mp_handle", me.handle);
+    const j = await api("upload", { act: +rec.act, song: s.n, kind: rec.kind, private: $("recPrivacy").value === "private", dur: rec.take.dur, offset: rec.take.offset, mime: "audio/wav", data: b64 });
     takeBufs.set(j.id, Promise.resolve(rec.take.buf));
     rec.take = null; rec.state = "idle"; ["recListen", "recSave", "recDiscard"].forEach(id => $(id).disabled = true);
     await refreshTakes();
     picks[rec.kind][key(rec.act, s.n)] = j.id; renderSongs();
-    $("recNote").textContent = "Saved. It's selected in the running order" + ($("recPrivacy").value === "private" ? " and only you (on this device) and the director can hear it." : ".");
+    $("recNote").textContent = "Saved. It's selected in the running order" + ($("recPrivacy").value === "private" ? " and only you and the director can hear it." : ".");
   } catch (e) {
     $("recSave").disabled = false;
     $("recNote").textContent = "Couldn't save the take (" + e.message + "). Try again in a moment.";
@@ -757,7 +795,7 @@ $("recCalibrate").onclick = async () => {
 
 // ---------------- start ----------------
 renderAct(); renderWho(); setStatus("Press Play. Songs load as you reach them.");
-refreshTakes();
+if (SIGNIN_TOKEN) finishSignin(); else refreshTakes();
 </script>
 </body>
 </html>
