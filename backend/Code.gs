@@ -3,9 +3,13 @@
  *
  * Stores recorded vocal and guitar-solo takes in a Drive folder called
  * "Magic Pick Takes" and keeps the list in this spreadsheet.
- *   Players sheet: handle, PIN hash, created
+ *   Players sheet: handle, created
  *   Takes sheet:   one row per take
  *   Settings sheet: the admin key (the director's key that can hear private takes)
+ *
+ * Private takes can be heard by the director (admin key) and by the browser
+ * that recorded them: each browser keeps a random key, and only a hash of it
+ * is stored with the take.
  *
  * Nothing is ever deleted: a removed take is marked removed and its file is
  * moved into a "_to_delete" folder for you to empty yourself.
@@ -15,12 +19,12 @@
  */
 
 const FOLDER_NAME = 'Magic Pick Takes';
-const TAKE_COLS = ['id', 'handle', 'act', 'song', 'kind', 'private', 'created', 'dur', 'offset', 'fileId', 'mime', 'removed'];
+const TAKE_COLS = ['id', 'handle', 'act', 'song', 'kind', 'private', 'created', 'dur', 'offset', 'fileId', 'mime', 'removed', 'owner'];
 const MAX_BYTES = 30 * 1024 * 1024;
 
 function setup() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  sheet_('Players', ['handle', 'pinHash', 'created']);
+  sheet_('Players', ['handle', 'created']);
   sheet_('Takes', TAKE_COLS);
   const st = sheet_('Settings', ['key', 'value']);
   if (!setting_('ADMIN_KEY')) {
@@ -42,7 +46,6 @@ function doPost(e) {
     const admin = !!q.admin && q.admin === setting_('ADMIN_KEY');
     switch (q.action) {
       case 'list': return out_(list_(q, admin));
-      case 'login': return out_(login_(q));
       case 'upload': return out_(upload_(q));
       case 'get': return out_(get_(q, admin));
       case 'setPrivate': return out_(setPrivate_(q, admin));
@@ -56,20 +59,17 @@ function doPost(e) {
 
 // ---------- actions ----------
 function list_(q, admin) {
-  const who = verify_(q.handle, q.pin, false);
-  const takes = rows_('Takes').filter(t => !t.removed && (!t.private || admin || (who && sameHandle_(t.handle, who))))
-    .map(publicTake_);
+  const mine = ownerHash_(q.key);
+  const takes = rows_('Takes').filter(t => !t.removed && (!t.private || admin || (mine && t.owner === mine)))
+    .map(t => Object.assign(publicTake_(t), { mine: !!mine && t.owner === mine }));
   const players = rows_('Players').map(p => p.handle).sort();
-  return { ok: true, takes, players, me: who || null, admin };
-}
-
-function login_(q) {
-  const who = verify_(q.handle, q.pin, true);
-  return { ok: true, handle: who };
+  return { ok: true, takes, players, admin };
 }
 
 function upload_(q) {
-  const who = verify_(q.handle, q.pin, true);
+  const who = player_(q.handle);
+  const owner = ownerHash_(q.key);
+  if (!owner) throw new Error('no_key');
   if (['vocal', 'solo'].indexOf(q.kind) < 0) throw new Error('bad_kind');
   if (!/^\d{2}$/.test(String(q.song)) || [1, 2].indexOf(Number(q.act)) < 0) throw new Error('bad_song');
   const bytes = Utilities.base64Decode(q.data);
@@ -81,7 +81,7 @@ function upload_(q) {
   try {
     const file = actFolder_(q.act).createFile(Utilities.newBlob(bytes, q.mime || 'audio/wav', name));
     sheet_('Takes', TAKE_COLS).appendRow([id, who, Number(q.act), String(q.song), q.kind, !!q.private, created,
-      Number(q.dur) || 0, Number(q.offset) || 0, file.getId(), q.mime || 'audio/wav', false]);
+      Number(q.dur) || 0, Number(q.offset) || 0, file.getId(), q.mime || 'audio/wav', false, owner]);
   } finally { lock.releaseLock(); }
   return { ok: true, id, handle: who };
 }
@@ -89,10 +89,7 @@ function upload_(q) {
 function get_(q, admin) {
   const t = rows_('Takes').find(r => r.id === q.id && !r.removed);
   if (!t) throw new Error('not_found');
-  if (t.private && !admin) {
-    const who = verify_(q.handle, q.pin, false);
-    if (!who || !sameHandle_(who, t.handle)) throw new Error('private');
-  }
+  if (t.private && !admin && t.owner !== ownerHash_(q.key)) throw new Error('private');
   const blob = DriveApp.getFileById(t.fileId).getBlob();
   return { ok: true, mime: t.mime, data: Utilities.base64Encode(blob.getBytes()) };
 }
@@ -113,7 +110,7 @@ function editTake_(q, admin, fn) {
   for (let r = 1; r < data.length; r++) {
     const t = toObj_(data[r]);
     if (t.id !== q.id) continue;
-    if (!admin) { const who = verify_(q.handle, q.pin, false); if (!who || !sameHandle_(who, t.handle)) throw new Error('not_yours'); }
+    if (!admin && t.owner !== ownerHash_(q.key)) throw new Error('not_yours');
     fn(sh, r + 1, t);
     return { ok: true };
   }
@@ -121,30 +118,22 @@ function editTake_(q, admin, fn) {
 }
 
 // ---------- players ----------
-// Returns the canonical handle. create=true registers a new handle with this PIN.
-function verify_(handle, pin, create) {
+// Handles are just names (2–24 characters, case-insensitive). New ones are added to the Players sheet.
+function player_(handle) {
   handle = String(handle || '').trim();
-  if (!handle) { if (create) throw new Error('need_handle'); return null; }
   if (handle.length < 2 || handle.length > 24 || /[<>]/.test(handle)) throw new Error('bad_handle');
-  if (!/^\d{4,8}$/.test(String(pin || ''))) { if (create) throw new Error('bad_pin_format'); return null; }
-  const hash = hash_(pin);
-  const sh = sheet_('Players', ['handle', 'pinHash', 'created']), data = sh.getDataRange().getValues();
-  for (let r = 1; r < data.length; r++) {
-    if (sameHandle_(data[r][0], handle)) {
-      if (data[r][1] === hash) return data[r][0];
-      if (create) throw new Error('bad_pin');
-      return null;
-    }
-  }
-  if (!create) return null;
-  sh.appendRow([handle, hash, new Date().toISOString()]);
+  const sh = sheet_('Players', ['handle', 'created']), data = sh.getDataRange().getValues();
+  for (let r = 1; r < data.length; r++) if (sameHandle_(data[r][0], handle)) return data[r][0];
+  sh.appendRow([handle, new Date().toISOString()]);
   return handle;
 }
 
 // ---------- helpers ----------
 function sameHandle_(a, b) { return String(a).trim().toLowerCase() === String(b).trim().toLowerCase(); }
-function hash_(pin) {
-  const raw = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, setting_('SALT') + ':' + pin);
+function ownerHash_(key) {
+  key = String(key || '');
+  if (!/^[A-Za-z0-9]{16,64}$/.test(key)) return '';
+  const raw = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, setting_('SALT') + ':' + key);
   return raw.map(b => ('0' + (b & 0xff).toString(16)).slice(-2)).join('');
 }
 function publicTake_(t) {

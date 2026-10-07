@@ -159,11 +159,8 @@ label.f input, label.f select { color: var(--ink); }
       <label class="f" id="newPlayerWrap" hidden>New handle
         <input id="recNewHandle" maxlength="24" autocomplete="nickname" placeholder="e.g. Brian">
       </label>
-      <label class="f">PIN (4–8 digits, keeps your private takes yours)
-        <input id="recPin" inputmode="numeric" type="password" maxlength="8" autocomplete="current-password">
-      </label>
       <label class="f">Who can hear this take
-        <select id="recPrivacy"><option value="public">Everyone (public)</option><option value="private">Only me and the director (private)</option></select>
+        <select id="recPrivacy"><option value="public">Everyone (public)</option><option value="private">Only me (on this device) and the director</option></select>
       </label>
       <label class="f">Input
         <select id="recDevice"><option value="">Default input</option></select>
@@ -262,7 +259,9 @@ function makeClick(accent) {
 // ---------------- takes (Google Drive backend) ----------------
 let TAKES = []; // {id, handle, act, song, kind, private, created, dur, offset, file?}
 let PLAYERS = [];
-let me = { handle: store.get("mp_handle") || "", pin: store.get("mp_pin") || "" };
+let me = { handle: store.get("mp_handle") || "" };
+// A random key kept in this browser. Private takes recorded here can be heard here (and by the director).
+const DEVICE_KEY = store.get("mp_key") || (() => { const k = Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, "0")).join(""); store.set("mp_key", k); return k; })();
 const picks = { vocal: {}, solo: {} }; // key act-song -> take id
 const key = (a, n) => a + "-" + n;
 async function api(action, body) {
@@ -274,7 +273,7 @@ async function api(action, body) {
 }
 async function refreshTakes() {
   let remote = [];
-  try { const j = await api("list", { handle: me.handle, pin: me.pin }); remote = j.takes || []; PLAYERS = j.players || []; }
+  try { const j = await api("list", { key: DEVICE_KEY }); remote = j.takes || []; PLAYERS = j.players || []; }
   catch (e) { if (e.message !== "no_backend") setStatus("Couldn't reach the takes library. Playback still works."); }
   TAKES = LEGACY_TAKES.concat(remote);
   for (const t of TAKES) if (t.handle && !PLAYERS.some(p => p.toLowerCase() === t.handle.toLowerCase())) PLAYERS.push(t.handle);
@@ -289,7 +288,7 @@ function loadTake(t) {
   if (!takeBufs.has(t.id)) {
     const p = (async () => {
       if (t.file) return fetchDecode(t.file, t.dur);
-      const j = await api("get", { id: t.id, handle: me.handle, pin: me.pin });
+      const j = await api("get", { id: t.id, key: DEVICE_KEY });
       const bin = Uint8Array.from(atob(j.data), c => c.charCodeAt(0));
       return audio().decodeAudioData(bin.buffer);
     })().catch(e => { takeBufs.delete(t.id); throw e; });
@@ -644,7 +643,7 @@ function openRecorder(kind) {
   if (rec.state === "recording") return;
   stopEverything(); ui();
   rec.kind = kind; $("recPanel").hidden = false; recLabels(); fillPlayers();
-  $("recPin").value = me.pin; $("recLatency").value = store.get("mp_lat") || "0";
+  $("recLatency").value = store.get("mp_lat") || "0";
   $("recPrivacy").value = store.get("mp_priv") || "public";
   document.querySelectorAll("button.rec").forEach(b => b.classList.remove("on")); $(kind === "vocal" ? "recVocal" : "recSolo").classList.add("on");
   listDevices(); $("recPanel").scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -657,12 +656,10 @@ $("recPrivacy").onchange = () => store.set("mp_priv", $("recPrivacy").value);
 $("recChannel").onchange = () => store.set("mp_ch_" + rec.kind, $("recChannel").value);
 $("recDevice").onchange = () => store.set("mp_dev", $("recDevice").value);
 
-function handleAndPin() {
+function chosenHandle() {
   const h = ($("recPlayer").value === "__new" ? $("recNewHandle").value : $("recPlayer").value).trim();
-  const pin = $("recPin").value.trim();
   if (h.length < 2) return [null, "Enter your name (at least 2 letters)."];
-  if (!/^\d{4,8}$/.test(pin)) return [null, "Choose a PIN of 4 to 8 digits."];
-  return [{ handle: h, pin }, null];
+  return [{ handle: h }, null];
 }
 
 $("recGo").onclick = async () => {
@@ -720,20 +717,20 @@ $("recSave").onclick = async () => {
     $("recNote").textContent = "The takes library isn't connected yet, so the take was downloaded to this computer.";
     return;
   }
-  const [who, err] = handleAndPin(); if (err) { $("recNote").textContent = err; return; }
+  const [who, err] = chosenHandle(); if (err) { $("recNote").textContent = err; return; }
   $("recSave").disabled = true; $("recNote").textContent = "Saving to the takes library…";
   try {
     const b64 = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(",")[1]); fr.onerror = rej; fr.readAsDataURL(rec.take.blob); });
-    const j = await api("upload", { handle: who.handle, pin: who.pin, act: +rec.act, song: s.n, kind: rec.kind, private: $("recPrivacy").value === "private", dur: rec.take.dur, offset: rec.take.offset, mime: "audio/wav", data: b64 });
-    me = { handle: j.handle || who.handle, pin: who.pin }; store.set("mp_handle", me.handle); store.set("mp_pin", me.pin);
+    const j = await api("upload", { handle: who.handle, key: DEVICE_KEY, act: +rec.act, song: s.n, kind: rec.kind, private: $("recPrivacy").value === "private", dur: rec.take.dur, offset: rec.take.offset, mime: "audio/wav", data: b64 });
+    me = { handle: j.handle || who.handle }; store.set("mp_handle", me.handle);
     takeBufs.set(j.id, Promise.resolve(rec.take.buf));
     rec.take = null; rec.state = "idle"; ["recListen", "recSave", "recDiscard"].forEach(id => $(id).disabled = true);
     await refreshTakes();
     picks[rec.kind][key(rec.act, s.n)] = j.id; renderSongs();
-    $("recNote").textContent = "Saved. It's selected in the running order" + ($("recPrivacy").value === "private" ? " and only you and the director can hear it." : ".");
+    $("recNote").textContent = "Saved. It's selected in the running order" + ($("recPrivacy").value === "private" ? " and only you (on this device) and the director can hear it." : ".");
   } catch (e) {
     $("recSave").disabled = false;
-    $("recNote").textContent = e.message === "bad_pin" ? "That name is taken and the PIN doesn't match. Check your PIN or pick a different name." : "Couldn't save the take (" + e.message + "). Try again in a moment.";
+    $("recNote").textContent = "Couldn't save the take (" + e.message + "). Try again in a moment.";
   }
 };
 $("recCalibrate").onclick = async () => {
