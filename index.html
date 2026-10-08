@@ -95,8 +95,46 @@ label.f input, label.f select { color: var(--ink); }
 .meter { height: 8px; border-radius: 4px; background: var(--bg); border: 1px solid var(--line); overflow: hidden; }
 .meter i { display: block; height: 100%; width: 0; background: var(--rec); }
 .who-bar { font-family: var(--mono); font-size: 13px; color: var(--muted); }
+/* comments and script edits */
+.line { grid-template-columns: 64px minmax(0,1fr) auto; }
+.cbtn { font-family: var(--mono); font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 12px; background: transparent; color: var(--muted); opacity: .6; align-self: center; white-space: nowrap; }
+.line:hover .cbtn, .line:focus-within .cbtn, .cbtn.has, .cbtn[aria-expanded="true"] { opacity: 1; }
+.cbtn.has { border-color: var(--accent); color: var(--accent); }
+.line.now .cbtn { color: var(--spot-ink); border-color: var(--spot-ink); }
+.line.sugg .tx { color: var(--accent); opacity: 1; }
+.line.edited .tx::after { content: " ✎"; font-size: 13px; color: var(--muted); }
+.was { display: block; font-size: 12px; font-weight: 400; color: var(--muted); text-transform: none; letter-spacing: 0; font-style: normal; }
+.cdrawer { margin: 0 6px 8px 76px; padding: 10px 12px; border-left: 3px solid var(--accent); background: var(--bg); border-radius: 0 8px 8px 0; display: grid; gap: 10px; font-size: 14px; }
+.cmt { display: grid; gap: 3px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.cmt .h { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; font-family: var(--mono); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.cmt .h b { color: var(--ink); font-weight: 500; }
+.cmt .body { font-size: 15px; }
+.cmt .body i { color: var(--muted); }
+.tag { padding: 1px 6px; border-radius: 4px; border: 1px solid var(--line); }
+.tag.replace { border-color: var(--accent); color: var(--accent); }
+.tag.ok { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.cform { display: grid; gap: 8px; }
+.cform .seg { justify-self: start; }
+textarea { font: inherit; font-size: 15px; width: 100%; min-height: 60px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 7px 8px; resize: vertical; }
+textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+button.small { font-size: 13px; padding: 5px 10px; }
+.tick { display: inline-flex; gap: 6px; align-items: center; text-transform: none; letter-spacing: 0; font-family: var(--body); font-size: 13px; color: var(--ink); cursor: pointer; }
+.lyrbar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+.lyrbar .eyebrow { flex: 1 1 160px; }
+.lyrbar select { font-size: 13px; padding: 5px 6px; }
+.rv { display: grid; gap: 2px; }
+.rv-line { border-top: 1px solid var(--line); padding: 10px 0; display: grid; gap: 6px; }
+.rv-where { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.rv-cur { font-size: 15px; }
+.rv-opt { display: flex; gap: 10px; align-items: baseline; font-size: 15px; cursor: pointer; }
+.rv-opt input { transform: translateY(2px); }
+.rv-opt .by, .rv-note .by { font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: nowrap; }
+.rv-note { display: flex; gap: 10px; align-items: baseline; font-size: 14px; color: var(--muted); }
+.rv-pend { display: grid; gap: 4px; font-size: 14px; }
+.rv-pend s { color: var(--muted); }
 [hidden] { display: none !important; }
 @media (max-width: 600px) {
+  .cdrawer { margin-left: 6px; }
   .song { grid-template-columns: 28px minmax(0,1fr); }
   .song .picks { grid-column: 2; grid-row: auto; flex-wrap: wrap; }
   .pos { margin-left: 0; text-align: left; width: 100%; }
@@ -148,6 +186,28 @@ label.f input, label.f select { color: var(--ink); }
     <p class="note" id="status">Press Play. Songs load as you reach them.</p>
   </section>
 
+  <section class="panel" id="acctPanel" aria-label="Sign in" hidden>
+    <div class="row">
+      <div class="eyebrow" style="flex:1">Sign in · to save takes and comment on lines</div>
+      <button id="acctClose" class="small">Close</button>
+    </div>
+    <div class="signbox" id="signedInBox" hidden>
+      <span>Signed in as <b id="meName"></b> <span class="muted" id="meEmail"></span></span>
+      <button id="signOut" class="small">Sign out</button>
+    </div>
+    <div class="signbox" id="signInBox" hidden>
+      <label class="f">Your name (as it appears in the running order)
+        <input id="siName" maxlength="24" autocomplete="nickname" list="playersList" placeholder="e.g. Brian">
+      </label>
+      <label class="f">Your email
+        <input id="siEmail" type="email" maxlength="120" autocomplete="email" placeholder="you@example.com">
+      </label>
+      <button id="siSend">Email me a sign-in link</button>
+      <p class="note" id="siNote">One time on each computer or phone. Signing in lets you save takes and comment on lyrics and dialogue.</p>
+      <datalist id="playersList"></datalist>
+    </div>
+  </section>
+
   <section class="panel recpanel" id="recPanel" aria-label="Recorder" hidden>
     <div class="row">
       <div style="flex:1 1 240px">
@@ -157,21 +217,6 @@ label.f input, label.f select { color: var(--ink); }
       <button id="recClose">Close</button>
     </div>
     <div class="grid2">
-      <div class="signbox" id="signedInBox" hidden>
-        <span>Recording as <b id="meName"></b> <span class="muted" id="meEmail"></span></span>
-        <button id="signOut" class="small">Sign out</button>
-      </div>
-      <div class="signbox" id="signInBox" hidden>
-        <label class="f">Your name (as it appears in the running order)
-          <input id="siName" maxlength="24" autocomplete="nickname" list="playersList" placeholder="e.g. Brian">
-        </label>
-        <label class="f">Your email
-          <input id="siEmail" type="email" maxlength="120" autocomplete="email" placeholder="you@example.com">
-        </label>
-        <button id="siSend">Email me a sign-in link</button>
-        <p class="note" id="siNote">One time on each computer or phone. You can record now and save once you're signed in.</p>
-        <datalist id="playersList"></datalist>
-      </div>
       <label class="f">Who can hear this take
         <select id="recPrivacy"><option value="public">Everyone (public)</option><option value="private">Only me and the director (private)</option></select>
       </label>
@@ -200,15 +245,34 @@ label.f input, label.f select { color: var(--ink); }
   </section>
 
   <section class="panel" aria-label="Lyrics and dialogue">
-    <div class="eyebrow" id="lyrHead">Lyrics</div>
+    <div class="lyrbar">
+      <div class="eyebrow" id="lyrHead">Lyrics</div>
+      <select id="viewSel" aria-label="Text version" hidden></select>
+      <div class="seg" role="group" aria-label="Show">
+        <button data-mode="lyrics" aria-pressed="true">Lyrics</button>
+        <button data-mode="dialogue" aria-pressed="false">Dialogue</button>
+      </div>
+    </div>
     <div class="lyrics" id="lyrics"></div>
     <p class="note" id="lyrNote"></p>
+  </section>
+
+  <section class="panel" id="reviewPanel" aria-label="Script edits" hidden>
+    <div class="row">
+      <h2 style="flex:1">Script edits</h2>
+      <button id="rvUpdate" class="primary" disabled>Update</button>
+    </div>
+    <p class="note" id="rvIntro">Tick the suggestions you want and press Update. The ticked wording replaces the line on the site for everyone. Other suggestions stay saved as each person's version.</p>
+    <div class="rv" id="rvList"></div>
+    <div class="rv-pend" id="rvPend"></div>
+    <p class="note" id="rvNote"></p>
   </section>
 
   <section class="panel" aria-label="Running order">
     <div class="row">
       <h2 style="flex:1">Running order</h2>
       <span class="who-bar" id="whoBar"></span>
+      <button id="whoSign" class="small" hidden>Sign in</button>
     </div>
     <p class="note">Pick a vocal take to sing along with a cast member instead of the guide vocal, or a guitar solo to play after the song: a bar's pause, two bars of click, then the Loop repeats under the solo. Turn on <b>Play dialogue</b> to read each scene between songs.</p>
     <div class="songs" id="songs"></div>
@@ -290,12 +354,13 @@ async function refreshTakes() {
   try {
     const j = await api("list"); remote = j.takes || []; PLAYERS = j.players || [];
     me = j.me ? { handle: j.me.name, email: j.me.email } : { handle: "", email: "" }; IS_ADMIN = !!j.admin;
+    COMMENTS = j.comments || [];
   }
   catch (e) { if (e.message !== "no_backend") setStatus("Couldn't reach the takes library. Playback still works."); }
   TAKES = LEGACY_TAKES.concat(remote);
   for (const t of TAKES) if (t.handle && !PLAYERS.some(p => p.toLowerCase() === t.handle.toLowerCase())) PLAYERS.push(t.handle);
   PLAYERS.sort((a, b) => a.localeCompare(b));
-  renderSongs(); renderWho(); fillPlayers();
+  renderSongs(); renderWho(); fillPlayers(); onComments();
 }
 function takesFor(i, kind) { const n = SONGS[i].n; return TAKES.filter(t => String(t.act) === act && t.song === n && t.kind === kind); }
 function takeById(id) { return TAKES.find(t => t.id === id); }
@@ -316,6 +381,230 @@ function loadTake(t) {
 const vocalTake = i => { const id = picks.vocal[key(act, SONGS[i].n)]; return id ? takeById(id) : null; };
 const soloTake = i => { const id = picks.solo[key(act, SONGS[i].n)]; return id ? takeById(id) : null; };
 
+// ---------------- comments and script edits ----------------
+// Every lyric and dialogue line has a 💬 button. A comment is either a suggested new wording ("Replace line")
+// or a note. Each person's suggestions form their own version, picked from the Text dropdown.
+// The director ticks suggestions and presses Update; applied wording then shows here for everyone,
+// and Claude copies it into the Ableton clip names (and data.js) when asked.
+const BASE = JSON.parse(JSON.stringify(ACTS)); // the text as built from Ableton
+let COMMENTS = [], commentsSig = "";
+let VIEW = "";            // "" = current script, or a commenter's name to see their version
+let OPEN = null;          // the line whose comment box is open
+const TICK = new Set();   // suggestions the director has ticked for Update
+const DRAFTS = new Map(); // unsaved comment text, kept while lines re-draw
+let acctWanted = false;
+const PART_ORDER = { before: 0, during: 1, lyrics: 2, after: 3 };
+const ckey = (a, n, part, idx) => a + "|" + n + "|" + part + "|" + idx;
+const cOf = c => ckey(String(c.act), c.song, c.part, c.idx);
+function lineArr(srcActs, a, n, part, idx) {
+  const s = ((srcActs[a] || {}).songs || []).find(x => x.n === n); if (!s) return null;
+  return part === "lyrics" ? (s.lyrics || [])[idx] : ((s.dlg || {})[part] || [])[idx];
+}
+const readTD = (arr, part) => !arr ? { text: "", dir: "" } : part === "lyrics" ? { text: arr[1], dir: "" } : { text: arr[2], dir: arr[1] || "" };
+function writeTD(arr, part, td) { if (part === "lyrics") arr[1] = td.text; else { arr[2] = td.text; arr[1] = td.dir || ""; } }
+const sameTD = (a, b) => a.text === b.text && (a.dir || "") === (b.dir || "");
+const byTime = f => (x, y) => String(x[f]).localeCompare(String(y[f]));
+const lineComments = k => COMMENTS.filter(c => c.status !== "removed" && cOf(c) === k).sort(byTime("created"));
+
+// Put applied edits on top of the built text. An edit only applies if the line still reads as it did
+// when the suggestion was made, so a rebuilt data.js can never get the wrong line changed.
+function applyOverlay() {
+  for (const a of Object.keys(ACTS)) ACTS[a].songs.forEach((s, si) => {
+    const b = BASE[a].songs[si];
+    (s.lyrics || []).forEach((l, i) => { l[1] = b.lyrics[i][1]; });
+    ["before", "during", "after"].forEach(p => ((s.dlg || {})[p] || []).forEach((x, i) => { x[1] = b.dlg[p][i][1]; x[2] = b.dlg[p][i][2]; }));
+  });
+  COMMENTS.filter(c => c.status === "applied" && c.kind === "replace").sort(byTime("appliedAt")).forEach(c => {
+    const arr = lineArr(ACTS, String(c.act), c.song, c.part, c.idx); if (!arr) return;
+    if (sameTD(readTD(arr, c.part), { text: c.original, dir: c.origDir })) writeTD(arr, c.part, { text: c.text, dir: c.dir });
+  });
+}
+// Lines whose wording on the site differs from Ableton (waiting to be copied into Ableton).
+function pendingEdits(a) {
+  const out = [];
+  ACTS[a].songs.forEach((s, si) => {
+    const b = BASE[a].songs[si];
+    (s.lyrics || []).forEach((l, i) => { if (l[1] !== b.lyrics[i][1]) out.push({ s, part: "lyrics", idx: i, at: barBeat(s, l[0]), from: b.lyrics[i][1], to: l[1] }); });
+    ["before", "during", "after"].forEach(p => ((s.dlg || {})[p] || []).forEach((x, i) => {
+      const y = b.dlg[p][i]; if (x[2] === y[2] && x[1] === y[1]) return;
+      const fmt = z => (z[1] ? "(" + z[1] + ") " : "") + z[2];
+      out.push({ s, part: p, idx: i, who: x[0], from: fmt(y), to: fmt(x) });
+    }));
+  });
+  return out;
+}
+function viewTD(a, n, part, idx) {
+  if (!VIEW) return null;
+  const k = ckey(a, n, part, idx);
+  const c = COMMENTS.filter(c => c.status === "open" && c.kind === "replace" && c.handle === VIEW && cOf(c) === k).sort(byTime("created")).pop();
+  return c ? { text: c.text, dir: c.dir } : null;
+}
+function onComments() {
+  for (const id of [...TICK]) if (!COMMENTS.some(c => c.id === id && c.status === "open")) TICK.delete(id);
+  applyOverlay(); renderViewSel(); renderReview();
+  const sig = JSON.stringify([COMMENTS, me.email, IS_ADMIN]);
+  if (sig !== commentsSig) { commentsSig = sig; rerenderLines(); }
+}
+
+function cButton(k) {
+  const n = lineComments(k).length, b = mk("button", "cbtn" + (n ? " has" : ""), n ? "💬 " + n : "💬");
+  b.setAttribute("aria-label", n ? n + (n === 1 ? " comment" : " comments") + " on this line" : "Comment on this line");
+  b.title = "Comment on this line";
+  b.setAttribute("aria-expanded", String(OPEN === k));
+  b.onclick = e => { e.stopPropagation(); OPEN = OPEN === k ? null : k; rerenderLines(); };
+  return b;
+}
+function toggleTick(c, on) {
+  if (on) { COMMENTS.forEach(o => { if (o.id !== c.id && cOf(o) === cOf(c)) TICK.delete(o.id); }); TICK.add(c.id); }
+  else TICK.delete(c.id);
+  renderReview(); if (OPEN) rerenderLines();
+}
+function tickBox(c, label) {
+  const l = mk("label", "tick"), cb = document.createElement("input"); cb.type = "checkbox";
+  cb.checked = TICK.has(c.id); cb.onchange = () => toggleTick(c, cb.checked);
+  l.append(cb, document.createTextNode(label)); return l;
+}
+const fmtDay = d => { const t = new Date(d); return isNaN(t) ? "" : t.toLocaleDateString(undefined, { month: "short", day: "numeric" }); };
+
+// The comment box under a line: existing comments, then a form to add one.
+function drawer(a, n, part, idx) {
+  const k = ckey(a, n, part, idx), cur = readTD(lineArr(ACTS, a, n, part, idx), part);
+  const box = mk("div", "cdrawer");
+  const list = lineComments(k);
+  list.forEach(c => {
+    const it = mk("div", "cmt"), h = mk("div", "h");
+    h.append(mk("b", "", c.handle), mk("span", "tag " + c.kind, c.kind === "replace" ? "Replace line" : "Note"), mk("span", "", fmtDay(c.created)));
+    if (c.status === "applied") h.append(mk("span", "tag ok", "Updated " + fmtDay(c.appliedAt)));
+    if (IS_ADMIN && c.kind === "replace" && c.status === "open") h.append(tickBox(c, "Use on Update"));
+    if (c.status === "open" && (c.mine || IS_ADMIN)) {
+      const rm = mk("button", "small", "Remove"); rm.style.marginLeft = "auto";
+      rm.onclick = async () => { rm.disabled = true; try { await api("uncomment", { id: c.id }); await refreshTakes(); } catch (e) { rm.disabled = false; alert("Couldn't remove it (" + e.message + ")."); } };
+      h.append(rm);
+    }
+    const body = mk("div", "body");
+    if (c.kind === "replace" && c.dir) body.append(mk("i", "", "(" + c.dir + ") "));
+    body.append(document.createTextNode(c.text));
+    it.append(h, body); box.append(it);
+  });
+  if (!list.length) box.append(mk("p", "note", "No comments on this line yet."));
+
+  if (!BACKEND_URL) return box;
+  if (!me.email) {
+    const r = mk("div", "row"), b = mk("button", "small", "Sign in");
+    b.onclick = showAcct; r.append(mk("span", "note", "Sign in to comment."), b); box.append(r); return box;
+  }
+  // draft: the replacement wording and the note are kept separately, so switching type loses nothing
+  const d = DRAFTS.get(k) || { kind: "replace", rText: cur.text, rDir: cur.dir, nText: "" };
+  DRAFTS.set(k, d);
+  const form = mk("div", "cform"), seg = mk("div", "seg");
+  seg.setAttribute("role", "group"); seg.setAttribute("aria-label", "Comment type");
+  const dirIn = document.createElement("input"), ta = document.createElement("textarea");
+  dirIn.placeholder = "Stage direction (optional)"; dirIn.maxLength = 200; dirIn.setAttribute("aria-label", "Stage direction");
+  ta.maxLength = 500; ta.setAttribute("aria-label", "Comment");
+  const save = mk("button", "primary small", "Save"), cancel = mk("button", "small", "Cancel"), msg = mk("span", "note");
+  const show = () => {
+    const rep = d.kind === "replace";
+    ta.value = rep ? d.rText : d.nText; dirIn.value = d.rDir;
+    ta.placeholder = rep ? "New wording for this line" : "Your note";
+    dirIn.hidden = !rep || part === "lyrics";
+    seg.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.k === d.kind)));
+    msg.textContent = "";
+  };
+  [["replace", "Replace line"], ["note", "Note"]].forEach(([v, lab]) => { const b = mk("button", "", lab); b.dataset.k = v; b.onclick = () => { d.kind = v; show(); ta.focus(); }; seg.append(b); });
+  ta.oninput = () => { if (d.kind === "replace") d.rText = ta.value; else d.nText = ta.value; };
+  dirIn.oninput = () => { d.rDir = dirIn.value; };
+  ta.onkeydown = e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) save.click(); };
+  show();
+  cancel.onclick = () => { DRAFTS.delete(k); OPEN = null; rerenderLines(); };
+  save.onclick = async () => {
+    const text = ta.value.trim(), dir = part === "lyrics" ? "" : dirIn.value.trim();
+    if (!text) { msg.textContent = d.kind === "replace" ? "Type the new wording." : "Type your note."; return; }
+    if (d.kind === "replace" && sameTD({ text, dir }, cur)) { msg.textContent = "That's the same as the line now. Change the wording, or switch to Note."; return; }
+    save.disabled = true; msg.textContent = "Saving…";
+    try {
+      await api("comment", { act: +a, song: n, part, idx, kind: d.kind, text, dir: d.kind === "replace" ? dir : "", original: cur.text, origDir: cur.dir });
+      DRAFTS.delete(k); await refreshTakes();
+    } catch (e) { save.disabled = false; msg.textContent = e.message === "signed_out" ? "You've been signed out. Sign in again." : "Couldn't save (" + e.message + ")."; }
+  };
+  const btns = mk("div", "row"); btns.append(save, cancel, msg);
+  form.append(seg, dirIn, ta, btns); box.append(form);
+  return box;
+}
+
+function renderViewSel() {
+  const sel = $("viewSel"), counts = {};
+  COMMENTS.filter(c => c.status === "open" && c.kind === "replace" && String(c.act) === act).forEach(c => counts[c.handle] = (counts[c.handle] || 0) + 1);
+  const names = Object.keys(counts).sort((a, b) => a.localeCompare(b));
+  if (VIEW && !names.includes(VIEW)) VIEW = "";
+  sel.innerHTML = "";
+  const o0 = mk("option", "", "Current script"); o0.value = ""; sel.append(o0);
+  names.forEach(n => { const o = mk("option", "", n + "'s version (" + counts[n] + (counts[n] === 1 ? " change)" : " changes)")); o.value = n; sel.append(o); });
+  sel.value = VIEW; sel.hidden = !names.length;
+}
+
+// Director only: every open comment in this act, grouped by line, with the Update button.
+function renderReview() {
+  const panel = $("reviewPanel"); panel.hidden = !IS_ADMIN; if (!IS_ADMIN) return;
+  const list = $("rvList"); list.innerHTML = "";
+  const open = COMMENTS.filter(c => c.status === "open" && String(c.act) === act);
+  const groups = new Map();
+  open.forEach(c => { const k = cOf(c); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(c); });
+  const songIdx = n => SONGS.findIndex(s => s.n === n);
+  [...groups.values()].sort((x, y) => songIdx(x[0].song) - songIdx(y[0].song) || PART_ORDER[x[0].part] - PART_ORDER[y[0].part] || x[0].idx - y[0].idx).forEach(cs => {
+    const c0 = cs[0], s = SONGS[songIdx(c0.song)]; if (!s) return;
+    const arr = lineArr(ACTS, act, c0.song, c0.part, c0.idx), now = readTD(arr, c0.part);
+    const where = c0.part === "lyrics" ? "Lyrics · bar " + barBeat(s, arr ? arr[0] : 0) : "Dialogue " + c0.part + " the song · " + (arr ? arr[0] : "");
+    const row = mk("div", "rv-line");
+    const w = mk("button", "rv-where", s.n + " " + s.title + " · " + where);
+    w.style.cssText = "background:none;border:0;padding:0;text-align:left;cursor:pointer";
+    w.title = "Show this line";
+    w.onclick = () => { if (cur !== songIdx(c0.song)) select(songIdx(c0.song)); if (c0.part === "lyrics") showLyrics(true); else showDialogueBrowse(); OPEN = cOf(c0); rerenderLines(); $("lyrics").closest("section").scrollIntoView({ behavior: "smooth", block: "start" }); };
+    row.append(w, mk("div", "rv-cur", (now.dir ? "(" + now.dir + ") " : "") + now.text));
+    cs.sort(byTime("created")).forEach(c => {
+      if (c.kind === "replace") {
+        const l = mk("label", "rv-opt"), cb = document.createElement("input"); cb.type = "checkbox";
+        cb.checked = TICK.has(c.id); cb.onchange = () => toggleTick(c, cb.checked);
+        l.append(cb, mk("span", "", (c.dir ? "(" + c.dir + ") " : "") + c.text), mk("span", "by", "— " + c.handle));
+        row.append(l);
+      } else {
+        const nl = mk("div", "rv-note"); nl.append(mk("span", "", "Note: " + c.text), mk("span", "by", "— " + c.handle)); row.append(nl);
+      }
+    });
+    list.append(row);
+  });
+  if (!groups.size) list.append(mk("p", "note", "No open comments in " + ACTS[act].title + "."));
+  $("rvUpdate").textContent = TICK.size ? "Update " + TICK.size + (TICK.size === 1 ? " line" : " lines") : "Update";
+  $("rvUpdate").disabled = !TICK.size;
+  const pend = $("rvPend"); pend.innerHTML = "";
+  const pe = pendingEdits(act);
+  if (pe.length) {
+    pend.append(mk("div", "eyebrow", "Waiting for Ableton · " + pe.length + (pe.length === 1 ? " line" : " lines")));
+    pe.forEach(p => { const d = mk("div"); d.append(mk("span", "rv-where", p.s.title + " · " + (p.part === "lyrics" ? "bar " + p.at : p.who) + " "), mk("s", "", p.from), document.createTextNode(" → " + p.to)); pend.append(d); });
+    pend.append(mk("p", "note", "Ask Claude to “apply the approved script edits” to rename these clips in Ableton and rebuild the site's text."));
+  }
+}
+$("rvUpdate").onclick = async () => {
+  const ids = [...TICK]; if (!ids.length) return;
+  $("rvUpdate").disabled = true; $("rvNote").textContent = "Updating…";
+  try {
+    const j = await api("applyEdits", { ids });
+    TICK.clear(); await refreshTakes();
+    $("rvNote").textContent = "Updated " + j.applied + (j.applied === 1 ? " line" : " lines") + ". Everyone sees the new wording now.";
+  } catch (e) {
+    $("rvUpdate").disabled = false;
+    $("rvNote").textContent = { two_on_one_line: "Two suggestions are ticked on the same line. Untick one.", not_director: "Only the director can update." }[e.message] || "Couldn't update (" + e.message + "). Try again.";
+  }
+};
+$("viewSel").onchange = () => { VIEW = $("viewSel").value; rerenderLines(); };
+document.querySelectorAll(".lyrbar .seg button").forEach(b => b.onclick = () => {
+  if (b.dataset.mode === "lyrics") showLyrics(true);
+  else if (dlg && (phase === "before" || phase === "after")) { showDialogue(); markDialogue(); }
+  else showDialogueBrowse();
+});
+function showAcct() { acctWanted = true; fillPlayers(); $("acctPanel").scrollIntoView({ behavior: "smooth", block: "nearest" }); }
+$("acctClose").onclick = () => { acctWanted = false; fillPlayers(); };
+$("whoSign").onclick = showAcct;
+
 // ---------------- playback sequence ----------------
 // For each song: [dialogue before] -> song -> [solo] -> [dialogue after] -> next song
 let cur = 0, mix = "bandvox", through = true, dialogueOn = store.get("mp_dlg") === "1";
@@ -325,8 +614,9 @@ let loopStart = 0;
 
 function dlgLines(i, which) {
   const d = SONGS[i].dlg || {};
-  if (which === "before") return [].concat((d.before || []).map(x => ({ x })), (d.during || []).length ? [{ head: "During the song" }].concat(d.during.map(x => ({ x }))) : []);
-  return (d.after || []).map(x => ({ x }));
+  const tag = part => (x, idx) => ({ x, part, idx });
+  if (which === "before") return [].concat((d.before || []).map(tag("before")), (d.during || []).length ? [{ head: "During the song" }].concat(d.during.map(tag("during"))) : []);
+  return (d.after || []).map(tag("after"));
 }
 const hasDlg = (i, which) => dlgLines(i, which).some(l => l.x);
 function lineSecs(l) { if (!l.x) return 0.8; const w = (l.x[2] + " " + l.x[1]).split(/\s+/).length; return Math.min(9, Math.max(2.4, 1.2 + w * 0.36)); }
@@ -435,7 +725,7 @@ function renderAct() {
   const tot = SONGS.reduce((a, s) => a + s.dur, 0);
   $("actMeta").innerHTML = "";
   [SONGS.length + " songs", "about " + Math.round(tot / 60) + " minutes", "Each song starts with its count-in"].forEach(t => { const s = document.createElement("span"); s.textContent = t; $("actMeta").append(s); });
-  cur = 0; plan = null; dlg = null; renderSongs(); renderNow(); ui();
+  cur = 0; plan = null; dlg = null; OPEN = null; renderViewSel(); renderReview(); renderSongs(); renderNow(); ui();
 }
 let lineEls = [], lastLine = -2, lyrMode = "lyrics";
 function renderNow() {
@@ -443,7 +733,7 @@ function renderNow() {
   $("npScene").textContent = s.scene + " · " + s.singer;
   $("npTitle").textContent = s.title;
   document.querySelectorAll(".song").forEach((el, i) => el.classList.toggle("cur", i === cur));
-  showLyrics();
+  if (lyrMode === "browse") showDialogueBrowse(); else showLyrics();
   const p = makePlan(cur), z = $("soloZone");
   if (p.take) { z.hidden = false; z.style.left = (p.dur / p.end * 100) + "%"; z.style.width = ((p.end - p.dur) / p.end * 100) + "%"; } else z.hidden = true;
   $("fill").style.width = "0%";
@@ -451,55 +741,96 @@ function renderNow() {
   $("stage").textContent = "Ready"; $("stage").className = "stage";
   if (!$("recPanel").hidden) recLabels();
 }
-function showLyrics() {
-  if (lyrMode === "lyrics" && lineEls.length && lineEls.song === cur + act) return;
-  lyrMode = "lyrics";
+function setModeSeg() { document.querySelectorAll(".lyrbar .seg button").forEach(b => b.setAttribute("aria-pressed", String((b.dataset.mode === "lyrics") === (lyrMode === "lyrics")))); }
+const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const barBeat = (s, b) => (Math.floor(b / s.meter) + 1) + "." + (Math.floor(b % s.meter) + 1);
+function onActivate(d, go) { d.onclick = go; d.onkeydown = e => { if (e.target === d && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); go(); } }; }
+// Text for a line, as shown: the current script, or a commenter's suggested wording when their version is picked.
+function decorate(d, tx, a, n, part, idx, cur) {
+  const v = viewTD(a, n, part, idx), base = readTD(lineArr(BASE, a, n, part, idx), part);
+  const show = v || cur;
+  if (part !== "lyrics" && show.dir) tx.append(mk("span", "dir", "(" + show.dir + ") "));
+  tx.append(document.createTextNode(show.text));
+  if (v) { d.classList.add("sugg"); tx.append(mk("span", "was", "Now: " + (cur.dir ? "(" + cur.dir + ") " : "") + cur.text)); }
+  else if (!sameTD(cur, base)) { d.classList.add("edited"); d.title = "Updated wording (was: " + base.text + ")"; }
+}
+function showLyrics(force) {
+  if (!force && lyrMode === "lyrics" && lineEls.length && lineEls.song === cur + act) return;
+  lyrMode = "lyrics"; setModeSeg();
   const s = SONGS[cur], box = $("lyrics"); box.innerHTML = ""; lineEls = []; lineEls.song = cur + act; lastLine = -2;
   $("lyrHead").textContent = s.lyrics ? "Lyrics · " + s.singer : "Lyrics";
   if (s.lyrics) {
-    s.lyrics.forEach(([b, t]) => {
-      const d = document.createElement("div"); d.className = "line"; d.tabIndex = 0;
-      const at = document.createElement("span"); at.className = "at"; at.textContent = (Math.floor(b / s.meter) + 1) + "." + (Math.floor(b % s.meter) + 1);
-      const tx = document.createElement("span"); tx.className = "tx"; tx.textContent = t;
-      d.append(at, tx);
-      const go = () => start(cur, "song", Math.max(0, (b - 1) * 60 / s.bpm));
-      d.onclick = go; d.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } };
+    s.lyrics.forEach(([b, t], i) => {
+      const k = ckey(act, s.n, "lyrics", i);
+      const d = mk("div", "line"); d.tabIndex = 0;
+      const tx = mk("span", "tx");
+      decorate(d, tx, act, s.n, "lyrics", i, { text: t, dir: "" });
+      d.append(mk("span", "at", barBeat(s, b)), tx, cButton(k));
+      onActivate(d, () => start(cur, "song", Math.max(0, (b - 1) * 60 / s.bpm)));
       box.append(d); lineEls.push(d);
+      if (OPEN === k) box.append(drawer(act, s.n, "lyrics", i));
     });
-    $("lyrNote").textContent = "Tap a line to jump there." + (hasDlg(cur, "before") || hasDlg(cur, "after") ? " Turn on Play dialogue to read this scene's lines too." : "");
-  } else $("lyrNote").textContent = s.title + " has no sung lyrics.";
+    $("lyrNote").textContent = "Tap a line to jump there, or 💬 to comment on it." + (hasDlg(cur, "before") || hasDlg(cur, "after") ? " Pick Dialogue to read and comment on this scene's lines." : "");
+  } else $("lyrNote").textContent = s.title + " has no sung lyrics." + (hasDlg(cur, "before") || hasDlg(cur, "after") ? " Pick Dialogue to read this scene's lines." : "");
+}
+function dlgLineEl(i, part, idx, go) {
+  const s = SONGS[i], x = s.dlg[part][idx], who = x[0];
+  const d = mk("div", "line dlgline"); d.tabIndex = 0;
+  const tx = mk("span", "tx");
+  decorate(d, tx, act, s.n, part, idx, { text: x[2], dir: x[1] || "" });
+  d.append(mk("span", "who " + (["Robbie", "Melissa", "Clive"].includes(who) ? who : "other"), who), tx, cButton(ckey(act, s.n, part, idx)));
+  onActivate(d, go);
+  return d;
 }
 function showDialogue() {
-  lyrMode = "dialogue"; lineEls = []; lineEls.song = null;
+  lyrMode = "dialogue"; setModeSeg(); lineEls = []; lineEls.song = null;
   const box = $("lyrics"); box.innerHTML = "";
   const s = SONGS[cur];
   $("lyrHead").textContent = "Dialogue · " + s.scene + (dlg.which === "before" ? " · before " : " · after ") + s.title;
   dlg.lines.forEach((l, k) => {
-    if (l.head) { const h = document.createElement("div"); h.className = "sub-h"; h.textContent = l.head; box.append(h); lineEls.push(h); return; }
-    const [who, dir, text] = l.x;
-    const d = document.createElement("div"); d.className = "line dlgline"; d.tabIndex = 0;
-    const w = document.createElement("span"); w.className = "who " + (["Robbie", "Melissa", "Clive"].includes(who) ? who : "other"); w.textContent = who;
-    const tx = document.createElement("span"); tx.className = "tx";
-    if (dir) { const di = document.createElement("span"); di.className = "dir"; di.textContent = "(" + dir + ") "; tx.append(di); }
-    tx.append(document.createTextNode(text));
-    d.append(w, tx);
-    const go = () => start(cur, dlg ? dlg.which : "before", k);
-    d.onclick = go; d.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } };
+    if (l.head) { const h = mk("div", "sub-h", l.head); box.append(h); lineEls.push(h); return; }
+    const d = dlgLineEl(cur, l.part, l.idx, () => start(cur, dlg ? dlg.which : "before", k));
     box.append(d); lineEls.push(d);
+    if (OPEN === ckey(act, s.n, l.part, l.idx)) box.append(drawer(act, s.n, l.part, l.idx));
   });
-  $("lyrNote").textContent = "Lines advance at reading pace. Tap a line to jump, or Skip dialogue to go straight to the music.";
+  $("lyrNote").textContent = "Lines advance at reading pace. Tap a line to jump, 💬 to comment, or Skip dialogue to go straight to the music.";
+}
+// Read the scene's dialogue without playing it (to read along or comment).
+function showDialogueBrowse() {
+  lyrMode = "browse"; setModeSeg(); lineEls = []; lineEls.song = null;
+  const s = SONGS[cur], box = $("lyrics"); box.innerHTML = "";
+  $("lyrHead").textContent = "Dialogue · " + s.scene + " · " + s.title;
+  const nb = (s.dlg.before || []).length;
+  [["before", "Before the song"], ["during", "During the song"], ["after", "After the song"]].forEach(([p, h]) => {
+    const xs = s.dlg[p] || []; if (!xs.length) return;
+    box.append(mk("div", "sub-h", h));
+    xs.forEach((x, j) => {
+      const go = () => { if (!dialogueOn) $("dlgToggle").click(); p === "after" ? start(cur, "after", j) : start(cur, "before", p === "before" ? j : nb + 1 + j); };
+      box.append(dlgLineEl(cur, p, j, go));
+      if (OPEN === ckey(act, s.n, p, j)) box.append(drawer(act, s.n, p, j));
+    });
+  });
+  $("lyrNote").textContent = box.children.length ? "Tap a line to play the scene from there, or 💬 to comment on it." : "There's no dialogue around " + s.title + ".";
 }
 function markDialogue() {
   lineEls.forEach((el, k) => { el.classList.toggle("now", k === dlg.k); el.classList.toggle("past", k < dlg.k); });
   const el = lineEls[dlg.k], box = $("lyrics");
-  if (el) box.scrollTop = el.offsetTop - box.offsetTop - box.clientHeight / 2 + el.clientHeight / 2;
+  if (el && !OPEN) box.scrollTop = el.offsetTop - box.offsetTop - box.clientHeight / 2 + el.clientHeight / 2;
 }
 function showLine(beats) {
   const s = SONGS[cur]; if (!s.lyrics || lyrMode !== "lyrics") return;
   let c = -1; s.lyrics.forEach(([b], i) => { if (beats >= b) c = i; });
   if (c === lastLine) return; lastLine = c;
   lineEls.forEach((el, i) => { el.classList.toggle("now", i === c); el.classList.toggle("past", i < c); });
-  if (c >= 0) { const box = $("lyrics"), el = lineEls[c]; box.scrollTop = el.offsetTop - box.offsetTop - box.clientHeight / 2 + el.clientHeight / 2; }
+  if (c >= 0 && !OPEN) { const box = $("lyrics"), el = lineEls[c]; box.scrollTop = el.offsetTop - box.offsetTop - box.clientHeight / 2 + el.clientHeight / 2; }
+}
+// Re-draw the lines in place (after a comment, a version change, or opening a comment box) without jumping.
+function rerenderLines() {
+  const box = $("lyrics"), y = box.scrollTop;
+  if (lyrMode === "dialogue" && dlg) { showDialogue(); lineEls.forEach((el, k) => { el.classList.toggle("now", k === dlg.k); el.classList.toggle("past", k < dlg.k); }); }
+  else if (lyrMode === "browse") showDialogueBrowse();
+  else { const keep = lastLine; showLyrics(true); lastLine = keep; lineEls.forEach((el, i) => { el.classList.toggle("now", i === keep); el.classList.toggle("past", i < keep); }); }
+  box.scrollTop = y;
 }
 function tick() {
   const s = SONGS[cur], st = $("stage");
@@ -529,6 +860,7 @@ function tick() {
 }
 function renderWho() {
   $("whoBar").textContent = me.handle ? "Signed in as " + me.handle + (IS_ADMIN ? " (director)" : "") : "";
+  $("whoSign").hidden = !!me.handle || !BACKEND_URL;
 }
 function renderSongs() {
   const box = $("songs"); box.innerHTML = "";
@@ -642,6 +974,8 @@ function fillPlayers() {
   PLAYERS.forEach(p => { const o = document.createElement("option"); o.value = p; dl.append(o); });
   const on = !!me.email, online = !!BACKEND_URL;
   $("signedInBox").hidden = !on; $("signInBox").hidden = on || !online;
+  $("acctPanel").hidden = !online || !(acctWanted || !$("recPanel").hidden);
+  $("acctClose").hidden = !$("recPanel").hidden;
   if (on) { $("meName").textContent = me.handle; $("meEmail").textContent = me.email; stopSigninWatch(); }
 }
 // ---- email sign-in ----
@@ -668,7 +1002,7 @@ $("signOut").onclick = async () => {
 window.addEventListener("focus", () => { if (BACKEND_URL && !me.email && signinWatch) refreshTakes(); });
 async function finishSignin() {
   if (!SIGNIN_TOKEN || !BACKEND_URL) return;
-  try { const j = await api("verify", { token: SIGNIN_TOKEN }); setStatus("Signed in as " + j.me.name + ". You can record and save takes on this device."); }
+  try { const j = await api("verify", { token: SIGNIN_TOKEN }); setStatus("Signed in as " + j.me.name + ". You can save takes and comment on lines on this device."); }
   catch (e) { setStatus(e.message === "link_used_or_expired" ? "That sign-in link has already been used or has expired. Open the recorder and send a new one." : "That sign-in link didn't work. Open the recorder and send a new one."); }
   await refreshTakes();
 }
@@ -692,7 +1026,7 @@ function openRecorder(kind) {
 }
 $("recVocal").onclick = () => openRecorder("vocal");
 $("recSolo").onclick = () => openRecorder("solo");
-$("recClose").onclick = () => { if (rec.state === "recording") return; $("recPanel").hidden = true; document.querySelectorAll("button.rec").forEach(b => b.classList.remove("on")); if (rec.stream) { rec.stream.getTracks().forEach(t => t.stop()); rec.stream = null; } };
+$("recClose").onclick = () => { if (rec.state === "recording") return; $("recPanel").hidden = true; fillPlayers(); document.querySelectorAll("button.rec").forEach(b => b.classList.remove("on")); if (rec.stream) { rec.stream.getTracks().forEach(t => t.stop()); rec.stream = null; } };
 $("recLatency").onchange = () => store.set("mp_lat", $("recLatency").value);
 $("recPrivacy").onchange = () => store.set("mp_priv", $("recPrivacy").value);
 $("recChannel").onchange = () => store.set("mp_ch_" + rec.kind, $("recChannel").value);

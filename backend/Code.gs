@@ -7,6 +7,13 @@
  *   Devices sheet:  device, email, token, expires, verified, created
  *   Takes sheet:    one row per take
  *   Settings sheet: SALT, ADMIN_EMAILS (comma-separated; can hear every private take)
+ *   Comments sheet: one row per comment on a lyric or dialogue line. A "replace" comment
+ *                   is a suggested new wording (each person's suggestions form their own
+ *                   version); a "note" just stays attached. The director ticks suggestions
+ *                   and presses Update, which marks them "applied" — the site then shows
+ *                   the new wording. Nothing is deleted: removed comments are marked removed.
+ *
+ * Applied edits can be read by anyone at  <web app URL>?edits=1  (used to update Ableton).
  *
  * Sign-in is by email: a singer types their email once per device and taps the
  * link we email them. After that the device is signed in. A private take can be
@@ -25,11 +32,14 @@ const TAKE_COLS = ['id', 'handle', 'act', 'song', 'kind', 'private', 'created', 
 const DEV_COLS = ['device', 'email', 'token', 'expires', 'verified', 'created'];
 const MAX_BYTES = 30 * 1024 * 1024;
 const LINK_MINUTES = 60;
+const COM_COLS = ['id', 'act', 'song', 'part', 'idx', 'kind', 'text', 'dir', 'original', 'origDir', 'handle', 'owner', 'created', 'status', 'appliedAt', 'appliedBy'];
+const PARTS = ['lyrics', 'before', 'during', 'after'];
 
 function setup() {
   sheet_('Players', ['name', 'email', 'created']);
   sheet_('Devices', DEV_COLS);
   sheet_('Takes', TAKE_COLS);
+  comSheet_();
   const st = sheet_('Settings', ['key', 'value']);
   if (!setting_('SALT')) st.appendRow(['SALT', Utilities.getUuid()]);
   if (!setting_('ADMIN_EMAILS')) st.appendRow(['ADMIN_EMAILS', Session.getEffectiveUser().getEmail()]);
@@ -40,7 +50,12 @@ function setup() {
   return 'ok';
 }
 
-function doGet() { return out_({ ok: true, app: 'magic-pick-takes' }); }
+function doGet(e) {
+  if (e && e.parameter && e.parameter.edits) {
+    return out_({ ok: true, edits: comments_().filter(c => c.status === 'applied' && c.kind === 'replace').map(publicComment_) });
+  }
+  return out_({ ok: true, app: 'magic-pick-takes' });
+}
 
 function doPost(e) {
   try {
@@ -56,6 +71,9 @@ function doPost(e) {
       case 'get': return out_(get_(q, me, admin));
       case 'setPrivate': return out_(setPrivate_(q, me, admin));
       case 'remove': return out_(remove_(q, me, admin));
+      case 'comment': return out_(comment_(q, me));
+      case 'uncomment': return out_(uncomment_(q, me, admin));
+      case 'applyEdits': return out_(applyEdits_(q, me, admin));
       default: return out_({ ok: false, error: 'unknown_action' });
     }
   } catch (err) {
@@ -68,8 +86,89 @@ function list_(me, admin) {
   const takes = rows_('Takes', TAKE_COLS).filter(t => !t.removed && (!t.private || admin || (me && t.owner === me.email)))
     .map(t => Object.assign(publicTake_(t), { mine: !!me && t.owner === me.email }));
   const players = rows_('Players', ['name', 'email', 'created']).map(p => p.name).filter(String).sort();
-  return { ok: true, takes, players, me: me ? { name: me.name, email: me.email } : null, admin };
+  const comments = comments_().filter(c => c.status !== 'removed')
+    .map(c => Object.assign(publicComment_(c), { mine: !!me && c.owner === me.email }));
+  return { ok: true, takes, players, comments, me: me ? { name: me.name, email: me.email } : null, admin };
 }
+
+// ---------- comments on lyric and dialogue lines ----------
+// comment: {act, song, part, idx, kind: 'replace'|'note', text, dir, original, origDir}
+function comment_(q, me) {
+  if (!me) throw new Error('signed_out');
+  const act = Number(q.act), song = String(q.song), part = String(q.part), idx = Number(q.idx);
+  if ([1, 2].indexOf(act) < 0 || !/^\d{2}$/.test(song) || PARTS.indexOf(part) < 0 ||
+      !(idx >= 0 && idx < 1000 && idx === Math.floor(idx))) throw new Error('bad_line');
+  const kind = q.kind === 'note' ? 'note' : 'replace';
+  const text = clean_(q.text, 500), dir = part === 'lyrics' ? '' : clean_(q.dir, 200);
+  if (!text) throw new Error('empty');
+  const row = [Utilities.getUuid(), act, song, part, idx, kind, text, dir, clean_(q.original, 500), clean_(q.origDir, 200),
+    me.name, me.email, new Date().toISOString(), 'open', '', ''];
+  const lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    const sh = comSheet_();
+    // written as plain text so lines starting with = + - @ are never read as formulas
+    sh.getRange(sh.getLastRow() + 1, 1, 1, row.length)
+      .setRichTextValues([row.map(v => SpreadsheetApp.newRichTextValue().setText(String(v)).build())]);
+  } finally { lock.releaseLock(); }
+  return { ok: true, id: row[0] };
+}
+
+function uncomment_(q, me, admin) {
+  if (!me) throw new Error('signed_out');
+  const sh = comSheet_(), data = sh.getDataRange().getValues();
+  for (let r = 1; r < data.length; r++) {
+    const c = toObj_(data[r], COM_COLS);
+    if (c.id !== q.id) continue;
+    if (!admin && c.owner !== me.email) throw new Error('not_yours');
+    if (c.status === 'applied') throw new Error('already_applied');
+    sh.getRange(r + 1, COM_COLS.indexOf('status') + 1).setValue('removed');
+    return { ok: true };
+  }
+  throw new Error('not_found');
+}
+
+// applyEdits: {ids: [...]} — director only. Makes the ticked suggestions the new wording.
+function applyEdits_(q, me, admin) {
+  if (!me || !admin) throw new Error('not_director');
+  const ids = (Array.isArray(q.ids) ? q.ids : []).map(String).slice(0, 300);
+  if (!ids.length) throw new Error('nothing_ticked');
+  const lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    const sh = comSheet_(), data = sh.getDataRange().getValues(), rows = [], lines = {};
+    for (let r = 1; r < data.length; r++) {
+      const c = toObj_(data[r], COM_COLS);
+      if (ids.indexOf(c.id) < 0) continue;
+      if (c.status !== 'open' || c.kind !== 'replace') throw new Error('not_open');
+      const k = [c.act, c.song, c.part, c.idx].join('|');
+      if (lines[k]) throw new Error('two_on_one_line');
+      lines[k] = true; rows.push(r + 1);
+    }
+    if (rows.length !== ids.length) throw new Error('not_found');
+    const at = new Date().toISOString(), col = COM_COLS.indexOf('status') + 1;
+    rows.forEach(r => sh.getRange(r, col, 1, 3).setRichTextValues([['applied', at, me.name]
+      .map(v => SpreadsheetApp.newRichTextValue().setText(v).build())]));
+    return { ok: true, applied: rows.length };
+  } finally { lock.releaseLock(); }
+}
+
+function comments_() { return rows_('Comments', COM_COLS); }
+function publicComment_(c) {
+  const iso = v => v instanceof Date ? v.toISOString() : String(v || '');
+  return { id: c.id, act: Number(c.act), song: String(c.song).padStart(2, '0'), part: String(c.part), idx: Number(c.idx),
+    kind: c.kind, text: String(c.text), dir: String(c.dir || ''), original: String(c.original), origDir: String(c.origDir || ''),
+    handle: c.handle, created: iso(c.created), status: c.status, appliedAt: iso(c.appliedAt) };
+}
+function comSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName('Comments');
+  if (!sh) {
+    sh = ss.insertSheet('Comments');
+    sh.getRange(1, 1, 1, COM_COLS.length).setValues([COM_COLS]); sh.setFrozenRows(1);
+    sh.getRange(1, 1, sh.getMaxRows(), COM_COLS.length).setNumberFormat('@');
+  }
+  return sh;
+}
+function clean_(s, n) { return String(s == null ? '' : s).replace(/[\u0000-\u001f]+/g, ' ').trim().slice(0, n); }
 
 function upload_(q, me) {
   if (!me) throw new Error('signed_out');
