@@ -1170,8 +1170,8 @@ $("recCalibrate").onclick = async () => {
 };
 
 // ---------------- guitar-synth MIDI (for synth players) ----------------
-// Seven printed MIDI tracks per song (the six strings and Syn1, after the set's MIDI Thinner
-// and Note Length), the Band mix, and a Syn2 slot where a player records or uploads a part.
+// Seven printed MIDI tracks per song (the six strings and Syn1, through the MIDI Thinner at Thin 30
+// and the strings' Note Length), the Band mix, and a Syn2 slot where a player records or uploads a part.
 // Everything here starts at the count-in, like the Band audio.
 const MTRACKS = [
   { id: "1st", label: "1st string", sub: "ch 1 · high E", pan: 0.5 },
