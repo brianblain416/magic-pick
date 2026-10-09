@@ -206,6 +206,7 @@ a.btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
       </div>
       <button id="through" class="toggle" aria-pressed="true">Play through the act</button>
       <button id="dlgToggle" class="toggle" aria-pressed="false">Play dialogue</button>
+      <button id="midiToggle" class="toggle" aria-pressed="false" aria-controls="midiPanel">MIDI tracks</button>
       <button id="skip" hidden>Skip dialogue</button>
     </div>
     <p class="note" id="status">Press Play. Songs load as you reach them.</p>
@@ -269,7 +270,7 @@ a.btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
     <p class="note" id="recNote"></p>
   </section>
 
-  <section class="panel" id="midiPanel" aria-label="Guitar-synth MIDI">
+  <section class="panel" id="midiPanel" aria-label="Guitar-synth MIDI" hidden>
     <div class="mhead">
       <div class="t"><div class="eyebrow">Guitar-synth MIDI · for synth players</div><h3 id="midiSong"></h3></div>
       <button id="midiPlay" class="primary">Play MIDI</button>
@@ -1312,6 +1313,7 @@ function drawLane(cv, tr, data, buf) {
 
 let midiRendered = "";
 async function midiRender() {
+  if ($("midiPanel").hidden) return;   // only synth players open it; nothing loads until then
   const s = SONGS[cur], k = act + "-" + s.n;
   if (M.playing && midiRendered !== k) midiStop(false);
   if (midiRendered !== k) { M.pos = 0; M.end = s.dur; M.data = null; }
@@ -1423,6 +1425,13 @@ $("synthFile").onchange = async () => {
   }
 };
 $("midiPlay").onclick = midiPlay;
+function setMidiShown(on, scroll) {
+  $("midiPanel").hidden = !on; $("midiToggle").setAttribute("aria-pressed", String(on)); store.set("mp_midi", on ? "1" : "0");
+  if (on) { midiRendered = ""; midiRender(); if (scroll) $("midiPanel").scrollIntoView({ behavior: "smooth", block: "nearest" }); }
+  else if (M.playing) midiStop(true);
+}
+$("midiToggle").onclick = () => setMidiShown($("midiPanel").hidden, true);
+if (store.get("mp_midi") === "1") { $("midiPanel").hidden = false; $("midiToggle").setAttribute("aria-pressed", "true"); }
 window.addEventListener("resize", () => { clearTimeout(M.rz); M.rz = setTimeout(() => { if (M.lanesData) { MTRACKS.filter(tr => !tr.audio && !tr.take).forEach(tr => drawLane(M.lanes[tr.id], tr, M.lanesData)); drawSynth(); drawBand(); } }, 200); });
 
 // ---------------- start ----------------
