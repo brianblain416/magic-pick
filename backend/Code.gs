@@ -1,7 +1,7 @@
 /**
  * Magic Pick — takes library (Google Apps Script web app)
  *
- * Stores recorded vocal and guitar-solo takes in a Drive folder called
+ * Stores recorded vocal, guitar-solo and Syn2 (synth part) takes in a Drive folder called
  * "Magic Pick Takes" and keeps the list in this spreadsheet.
  *   Players sheet:  name, email, created           (one row per singer)
  *   Devices sheet:  device, email, token, expires, verified, created
@@ -172,7 +172,7 @@ function clean_(s, n) { return String(s == null ? '' : s).replace(/[\u0000-\u001
 
 function upload_(q, me) {
   if (!me) throw new Error('signed_out');
-  if (['vocal', 'solo'].indexOf(q.kind) < 0) throw new Error('bad_kind');
+  if (['vocal', 'solo', 'synth'].indexOf(q.kind) < 0) throw new Error('bad_kind');
   if (!/^\d{2}$/.test(String(q.song)) || [1, 2].indexOf(Number(q.act)) < 0) throw new Error('bad_song');
   const bytes = Utilities.base64Decode(q.data);
   if (bytes.length > MAX_BYTES) throw new Error('too_big');

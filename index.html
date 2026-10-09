@@ -132,12 +132,37 @@ button.small { font-size: 13px; padding: 5px 10px; }
 .rv-note { display: flex; gap: 10px; align-items: baseline; font-size: 14px; color: var(--muted); }
 .rv-pend { display: grid; gap: 4px; font-size: 14px; }
 .rv-pend s { color: var(--muted); }
+/* MIDI tracks for synth players */
+a.btn { font-weight: 700; font-size: 15px; padding: 9px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); text-decoration: none; display: inline-block; }
+a.btn:hover { border-color: var(--accent); }
+a.btn.small, .mrow a.btn { font-size: 13px; padding: 5px 10px; }
+a.btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
+.mhead { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.mhead .t { flex: 1 1 220px; }
+.mpos { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 13px; color: var(--muted); }
+.mtracks { display: grid; gap: 6px; --ph: 0%; }
+.mrow { display: grid; grid-template-columns: 118px minmax(0,1fr) auto; gap: 10px; align-items: center; }
+.mrow .mt { text-align: left; padding: 5px 9px; font-size: 13px; line-height: 1.2; display: grid; }
+.mrow .mt small { font-family: var(--mono); font-weight: 400; font-size: 11px; color: var(--muted); }
+.mrow .mt[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.mrow .mt[aria-pressed="true"] small { color: var(--bg); opacity: .75; }
+.mrow .mt[aria-pressed="false"] { opacity: .6; }
+.lane { position: relative; height: 34px; border-radius: 6px; background: var(--bg); border: 1px solid var(--line); overflow: hidden; cursor: pointer; }
+.lane canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.lane::after { content: ""; position: absolute; top: 0; bottom: 0; left: var(--ph); width: 2px; background: var(--rec); opacity: .85; }
+.lane .empty { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.macts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: flex-end; }
+.macts select { font-size: 13px; padding: 5px 6px; max-width: 170px; }
+.mrow.syn2 { border-top: 1px dashed var(--line); padding-top: 8px; }
 [hidden] { display: none !important; }
 @media (max-width: 600px) {
   .cdrawer { margin-left: 6px; }
   .song { grid-template-columns: 28px minmax(0,1fr); }
   .song .picks { grid-column: 2; grid-row: auto; flex-wrap: wrap; }
   .pos { margin-left: 0; text-align: left; width: 100%; }
+  .mrow { grid-template-columns: 92px minmax(0,1fr) auto; gap: 8px; }
+  .mrow.syn2 { grid-template-columns: 92px minmax(0,1fr); }
+  .mrow.syn2 .macts { grid-column: 1 / -1; justify-content: flex-start; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
 </style>
@@ -244,6 +269,20 @@ button.small { font-size: 13px; padding: 5px 10px; }
     <p class="note" id="recNote"></p>
   </section>
 
+  <section class="panel" id="midiPanel" aria-label="Guitar-synth MIDI">
+    <div class="mhead">
+      <div class="t"><div class="eyebrow">Guitar-synth MIDI · for synth players</div><h3 id="midiSong"></h3></div>
+      <button id="midiPlay" class="primary">Play MIDI</button>
+      <a class="btn" id="midiAll" download>All 6 strings .mid</a>
+      <a class="btn" id="midiZip" download>Everything .zip</a>
+    </div>
+    <div class="mpos" id="midiPos">0:00</div>
+    <div class="mtracks" id="midiRows"></div>
+    <input type="file" id="synthFile" accept="audio/*,.wav,.aif,.aiff,.mp3,.m4a,.flac" hidden>
+    <p class="note" id="midiNote2" aria-live="polite"></p>
+    <p class="note" id="midiNote">Each file starts at the 2-bar count-in, like the Band audio, and carries the song's tempo and meter. Strings are on MIDI channels 1–6 (1st = high E), Syn1 on 7. Tap a track name to mute it. Build your sounds, then record or upload your part on Syn2 — export it from the start of the count-in so it lines up.</p>
+  </section>
+
   <section class="panel" aria-label="Lyrics and dialogue">
     <div class="lyrbar">
       <div class="eyebrow" id="lyrHead">Lyrics</div>
@@ -340,7 +379,7 @@ let me = { handle: "", email: "" }; // filled in by the takes library when this 
 let IS_ADMIN = false;
 // A random key kept in this browser. Signing in by email links it to the singer.
 const DEVICE_KEY = store.get("mp_key") || (() => { const k = Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, "0")).join(""); store.set("mp_key", k); return k; })();
-const picks = { vocal: {}, solo: {} }; // key act-song -> take id
+const picks = { vocal: {}, solo: {}, synth: {} }; // key act-song -> take id
 const key = (a, n) => a + "-" + n;
 async function api(action, body) {
   if (!BACKEND_URL) throw new Error("no_backend");
@@ -360,7 +399,7 @@ async function refreshTakes() {
   TAKES = LEGACY_TAKES.concat(remote);
   for (const t of TAKES) if (t.handle && !PLAYERS.some(p => p.toLowerCase() === t.handle.toLowerCase())) PLAYERS.push(t.handle);
   PLAYERS.sort((a, b) => a.localeCompare(b));
-  renderSongs(); renderWho(); fillPlayers(); onComments();
+  renderSongs(); renderWho(); fillPlayers(); onComments(); renderSynthTakes();
 }
 function takesFor(i, kind) { const n = SONGS[i].n; return TAKES.filter(t => String(t.act) === act && t.song === n && t.kind === kind); }
 function takeById(id) { return TAKES.find(t => t.id === id); }
@@ -628,7 +667,7 @@ function makePlan(i) {
   else p.end = s.dur;
   return p;
 }
-function stopEverything() { run++; clearTimeout(timer); stopAll(); playing = false; loopMode = false; $("loop").setAttribute("aria-pressed", "false"); }
+function stopEverything() { midiStop(false); run++; clearTimeout(timer); stopAll(); playing = false; loopMode = false; $("loop").setAttribute("aria-pressed", "false"); }
 
 async function start(i, ph, pos) {
   stopEverything(); audio(); const my = run;
@@ -740,6 +779,7 @@ function renderNow() {
   $("pos").innerHTML = "<b>Bar 1 · beat 1</b><br>0:00 / " + fmtT(p.end);
   $("stage").textContent = "Ready"; $("stage").className = "stage";
   if (!$("recPanel").hidden) recLabels();
+  midiRender();
 }
 function setModeSeg() { document.querySelectorAll(".lyrbar .seg button").forEach(b => b.setAttribute("aria-pressed", String((b.dataset.mode === "lyrics") === (lyrMode === "lyrics")))); }
 const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
@@ -1008,10 +1048,12 @@ async function finishSignin() {
 }
 function recLabels() {
   const s = SONGS[cur];
-  $("recKindLabel").textContent = rec.kind === "vocal" ? "Record a vocal" : "Record a guitar solo";
+  $("recKindLabel").textContent = { vocal: "Record a vocal", solo: "Record a guitar solo", synth: "Record a Syn2 part" }[rec.kind];
   $("recSongLabel").textContent = ACTS[act].title + " · " + s.n + " " + s.title;
   $("recChannel").value = store.get("mp_ch_" + rec.kind) || (rec.kind === "solo" ? "1" : "0");
-  $("recNote").textContent = rec.kind === "vocal"
+  $("recNote").textContent = rec.kind === "synth"
+    ? "You'll hear the Band mix from the count-in while your synth is recorded. Plug the synth (or your computer's audio out) into the interface and use headphones so the band doesn't leak into your take."
+    : rec.kind === "vocal"
     ? "You'll hear the Band mix from the top of the song while your voice is recorded. Use headphones so the band doesn't leak into your take."
     : "You'll hear two bars of click, then the Loop repeats while you play. Press Stop when you're done. Plug your guitar into the interface's instrument input and use its direct monitoring to hear yourself.";
 }
@@ -1021,7 +1063,7 @@ function openRecorder(kind) {
   rec.kind = kind; $("recPanel").hidden = false; recLabels(); fillPlayers();
   $("recLatency").value = store.get("mp_lat") || "0";
   $("recPrivacy").value = store.get("mp_priv") || "public";
-  document.querySelectorAll("button.rec").forEach(b => b.classList.remove("on")); $(kind === "vocal" ? "recVocal" : "recSolo").classList.add("on");
+  document.querySelectorAll("button.rec").forEach(b => b.classList.remove("on")); if (kind !== "synth") $(kind === "vocal" ? "recVocal" : "recSolo").classList.add("on");
   listDevices(); $("recPanel").scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 $("recVocal").onclick = () => openRecorder("vocal");
@@ -1040,16 +1082,16 @@ $("recGo").onclick = async () => {
   const i = cur, s = SONGS[i], my = ++run; stopAll();
   rec.i = i; rec.act = act; rec.chunks = []; rec.take = null;
   let bed;
-  try { bed = rec.kind === "vocal" ? await load(songFile(i, "band"), s.dur) : await load(loopFile(i), s.loopDur); }
+  try { bed = rec.kind !== "solo" ? await load(songFile(i, "band"), s.dur) : await load(loopFile(i), s.loopDur); }
   catch (e) { $("recNote").textContent = "Couldn't load the backing track. Check your connection."; return; }
   const spb = 60 / s.bpm, bar = spb * s.meter, t0 = ctx.currentTime + 0.4;
   rec.cap = capture(c => { rec.chunks.push(c); meterFrom(rec.chunks); });
-  if (rec.kind === "vocal") { rec.t0 = t0; src(bed, t0, 0); rec.autoStop = setTimeout(stopRecording, (s.dur + 0.6) * 1000); }
+  if (rec.kind !== "solo") { rec.t0 = t0; src(bed, t0, 0); rec.autoStop = setTimeout(stopRecording, (s.dur + 0.6) * 1000); }
   else { for (let k = 0; k < 2 * s.meter; k++) src(makeClick(k % s.meter === 0), t0 + k * spb, 0); rec.t0 = t0 + 2 * bar; src(bed, rec.t0, 0, true); }
   rec.state = "recording"; $("recGo").textContent = "Stop"; $("recGo").classList.add("on");
   ["recListen", "recSave", "recDiscard", "recCalibrate"].forEach(id => $(id).disabled = true);
   $("stage").textContent = "Recording"; $("stage").className = "stage rec";
-  rec.ticker = setInterval(() => { const t = Math.max(0, ctx.currentTime - rec.t0); $("pos").innerHTML = "<b>Recording</b><br>" + fmtT(t) + (rec.kind === "vocal" ? " / " + fmtT(s.dur) : ""); }, 200);
+  rec.ticker = setInterval(() => { const t = Math.max(0, ctx.currentTime - rec.t0); $("pos").innerHTML = "<b>Recording</b><br>" + fmtT(t) + (rec.kind !== "solo" ? " / " + fmtT(s.dur) : ""); }, 200);
 };
 function stopRecording() {
   if (rec.state !== "recording") return;
@@ -1075,7 +1117,7 @@ $("recListen").onclick = async () => {
   if (!rec.take) return; stopAll(); const s = SONGS[rec.i];
   if ($("recListen").textContent === "Stop") { $("recListen").textContent = "Listen back"; return; }
   const t0 = ctx.currentTime + 0.1;
-  if (rec.kind === "vocal") { src(await load(songFile(rec.i, "band"), s.dur), t0, 0); }
+  if (rec.kind !== "solo") { src(await load(songFile(rec.i, "band"), s.dur), t0, 0); }
   else { const l = src(await load(loopFile(rec.i), s.loopDur), t0, 0, true); l.stop(t0 + Math.max(1, Math.round(rec.take.dur / s.loopDur)) * s.loopDur); }
   const n = src(rec.take.buf, t0, rec.take.offset);
   $("recListen").textContent = "Stop"; n.onended = () => { $("recListen").textContent = "Listen back"; };
@@ -1098,7 +1140,7 @@ $("recSave").onclick = async () => {
     takeBufs.set(j.id, Promise.resolve(rec.take.buf));
     rec.take = null; rec.state = "idle"; ["recListen", "recSave", "recDiscard"].forEach(id => $(id).disabled = true);
     await refreshTakes();
-    picks[rec.kind][key(rec.act, s.n)] = j.id; renderSongs();
+    picks[rec.kind][key(rec.act, s.n)] = j.id; renderSongs(); renderSynthTakes();
     $("recNote").textContent = "Saved. It's selected in the running order" + ($("recPrivacy").value === "private" ? " and only you and the director can hear it." : ".");
   } catch (e) {
     $("recSave").disabled = false;
@@ -1126,6 +1168,262 @@ $("recCalibrate").onclick = async () => {
   results.sort((a, b) => a - b); const ms = Math.round(results[Math.floor(results.length / 2)]);
   $("recLatency").value = ms; store.set("mp_lat", String(ms)); $("calNote").textContent = "Measured " + ms + " ms. Saved for this device.";
 };
+
+// ---------------- guitar-synth MIDI (for synth players) ----------------
+// Seven printed MIDI tracks per song (the six strings and Syn1, after the set's MIDI Thinner
+// and Note Length), the Band mix, and a Syn2 slot where a player records or uploads a part.
+// Everything here starts at the count-in, like the Band audio.
+const MTRACKS = [
+  { id: "1st", label: "1st string", sub: "ch 1 · high E", pan: 0.5 },
+  { id: "2nd", label: "2nd string", sub: "ch 2 · B", pan: 0.3 },
+  { id: "3rd", label: "3rd string", sub: "ch 3 · G", pan: 0.1 },
+  { id: "4th", label: "4th string", sub: "ch 4 · D", pan: -0.1 },
+  { id: "5th", label: "5th string", sub: "ch 5 · A", pan: -0.3 },
+  { id: "6th", label: "6th string", sub: "ch 6 · low E", pan: -0.5 },
+  { id: "syn1", label: "Syn1", sub: "ch 7 · synth", pan: 0, pad: true },
+  { id: "band", label: "Band", sub: "audio mix", audio: true },
+  { id: "syn2", label: "Syn2", sub: "your part", take: true }
+];
+const midiBase = () => "midi/a" + act + "/" + SONGS[cur].n;
+const songSlug = () => "MagicPick_A" + act + "-" + SONGS[cur].n + "_" + SONGS[cur].title.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join("").replace(/[^A-Za-z0-9]/g, "");
+const midiCache = new Map();
+function midiData(a, n) {
+  const k = a + "-" + n;
+  if (!midiCache.has(k)) midiCache.set(k, fetch("midi/a" + a + "/" + n + "_midi.json").then(r => { if (!r.ok) throw new Error("missing"); return r.json(); }).catch(e => { midiCache.delete(k); throw e; }));
+  return midiCache.get(k);
+}
+const MON = (() => { try { return JSON.parse(store.get("mp_midi_on") || "{}"); } catch (e) { return {}; } })();
+const isOn = id => MON[id] !== false;
+const M = { playing: false, pos: 0, t0: 0, data: null, bus: null, gains: {}, idx: {}, timer: null, nodes: [], my: 0, peaks: {}, end: 0 };
+
+function synthTake() { const id = picks.synth[key(act, SONGS[cur].n)]; return id ? takeById(id) : null; }
+
+function voice(dest, when, dur, pitch, vel, pad) {
+  const f = 440 * Math.pow(2, (pitch - 69) / 12), v = Math.pow(vel / 127, 1.4) * (pad ? 0.11 : 0.16);
+  const d = Math.max(0.09, dur), end = when + d;
+  const o1 = ctx.createOscillator(), o2 = ctx.createOscillator(), lp = ctx.createBiquadFilter(), g = ctx.createGain();
+  o1.type = "sawtooth"; o2.type = pad ? "square" : "triangle"; o1.frequency.value = f; o2.frequency.value = f * (pad ? 1.004 : 2.001);
+  lp.type = "lowpass"; lp.Q.value = pad ? 0.7 : 1.2;
+  if (pad) { lp.frequency.setValueAtTime(f * 3, when); }
+  else { lp.frequency.setValueAtTime(Math.min(12000, f * 10), when); lp.frequency.setTargetAtTime(f * 2.2, when, 0.12); }
+  const atk = pad ? 0.06 : 0.004;
+  g.gain.setValueAtTime(0, when); g.gain.linearRampToValueAtTime(v, when + atk);
+  if (pad) g.gain.setTargetAtTime(v * 0.7, when + atk, 0.3); else g.gain.setTargetAtTime(v * 0.35, when + atk, 0.35);
+  g.gain.setTargetAtTime(0, end, pad ? 0.25 : 0.06);
+  o1.connect(lp); o2.connect(lp); lp.connect(g); g.connect(dest);
+  const stopAt = end + (pad ? 1.4 : 0.4);
+  o1.start(when); o2.start(when); o1.stop(stopAt); o2.stop(stopAt);
+}
+
+function midiStop(keepPos) {
+  if (!M.playing && !M.bus) return;
+  if (M.playing && keepPos) M.pos = Math.min(M.end, ctx.currentTime - M.t0);
+  M.playing = false; M.my++; clearInterval(M.timer); M.timer = null;
+  M.nodes.forEach(n => { try { n.stop(); } catch (e) {} }); M.nodes = [];
+  if (M.bus) { const b = M.bus; b.gain.setTargetAtTime(0, ctx.currentTime, 0.02); setTimeout(() => { try { b.disconnect(); } catch (e) {} }, 200); M.bus = null; }
+  midiUI();
+}
+
+async function midiPlay() {
+  if (M.playing) { midiStop(true); return; }
+  if (rec.state !== "idle") return;
+  stopEverything(); ui(); audio(); await ctx.resume();
+  const my = ++M.my, i = cur, s = SONGS[i], t = synthTake();
+  $("midiNote2").textContent = "Loading…";
+  let data, band = null, take = null;
+  try {
+    [data, band, take] = await Promise.all([midiData(act, s.n),
+      isOn("band") ? load(songFile(i, "band"), s.dur) : null,
+      t && isOn("syn2") ? loadTake(t) : null]);
+  } catch (e) { if (my === M.my) $("midiNote2").textContent = "Couldn't load this song's MIDI. Check your connection and try again."; return; }
+  if (my !== M.my || i !== cur) return;
+  $("midiNote2").textContent = ""; if (band) drawBand();
+  M.data = data; M.end = data.end; if (M.pos >= M.end - 0.05) M.pos = 0;
+  M.bus = ctx.createGain(); M.bus.connect(out);
+  MTRACKS.forEach(tr => {
+    const g = ctx.createGain(); g.gain.value = isOn(tr.id) ? 1 : 0;
+    if (tr.pan && ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = tr.pan; g.connect(p); p.connect(M.bus); } else g.connect(M.bus);
+    M.gains[tr.id] = g;
+  });
+  const t0 = ctx.currentTime + 0.12; M.t0 = t0 - M.pos; M.playing = true;
+  const play = (buf, id, off) => { const n = ctx.createBufferSource(); n.buffer = buf; n.connect(M.gains[id]); const o = M.pos + (off || 0); if (o < buf.duration) { n.start(t0, Math.max(0, o)); M.nodes.push(n); } };
+  if (band) play(band, "band", 0);
+  if (take) play(take, "syn2", t.offset || 0);
+  M.idx = {};
+  MTRACKS.filter(tr => !tr.audio && !tr.take).forEach(tr => { const ns = data.tracks[tr.id] || []; let k = 0; while (k < ns.length && ns[k][0] < M.pos) k++; M.idx[tr.id] = k; });
+  const sched = () => {
+    if (my !== M.my) return;
+    const now = ctx.currentTime, horizon = now + 0.35;
+    MTRACKS.filter(tr => !tr.audio && !tr.take).forEach(tr => {
+      const ns = data.tracks[tr.id] || [];
+      while (M.idx[tr.id] < ns.length && M.t0 + ns[M.idx[tr.id]][0] < horizon) {
+        const [t, d, p, v] = ns[M.idx[tr.id]++]; const at = M.t0 + t;
+        if (at >= now - 0.02) voice(M.gains[tr.id], Math.max(at, now), d, p, v, tr.pad);
+      }
+    });
+    if (now - M.t0 > M.end + 0.3) { M.pos = 0; midiStop(false); }
+  };
+  sched(); M.timer = setInterval(sched, 60);
+  midiUI(); requestAnimationFrame(midiTick);
+}
+
+function midiTick() {
+  if (!M.playing) return;
+  const p = Math.min(M.end, ctx.currentTime - M.t0);
+  midiShowPos(p);
+  requestAnimationFrame(midiTick);
+}
+function midiShowPos(p) {
+  const s = SONGS[cur], spb = 60 / s.bpm, beats = Math.max(0, p) / spb, end = M.end || s.dur;
+  $("midiRows").style.setProperty("--ph", Math.max(0, Math.min(100, p / end * 100)) + "%");
+  $("midiPos").textContent = (p < 2 * s.meter * spb ? "Count-in · " : "Bar " + (Math.floor(beats / s.meter) + 1) + " · ") + fmtT(p) + " / " + fmtT(end);
+}
+function midiSeek(f) {
+  const p = Math.max(0, Math.min((M.end || SONGS[cur].dur) - 0.05, f * (M.end || SONGS[cur].dur)));
+  const was = M.playing; if (was) midiStop(true); M.pos = p; midiShowPos(p); if (was) midiPlay();
+}
+function midiUI() { $("midiPlay").textContent = M.playing ? "Pause" : "Play MIDI"; }
+
+function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function drawLane(cv, tr, data, buf) {
+  const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1, W = Math.max(1, Math.round(r.width * dpr)), H = Math.max(1, Math.round(r.height * dpr));
+  cv.width = W; cv.height = H; const c = cv.getContext("2d"); c.clearRect(0, 0, W, H);
+  const end = (data && data.end) || SONGS[cur].dur;
+  // count-in shading
+  const s = SONGS[cur], ci = 2 * s.meter * 60 / s.bpm;
+  c.fillStyle = cssVar("--line"); c.globalAlpha = 0.35; c.fillRect(0, 0, ci / end * W, H); c.globalAlpha = 1;
+  if (buf) {
+    const d = buf.getChannelData(0), step = Math.max(1, Math.floor(d.length / W)), off = Math.round(((tr.offset || 0)) * buf.sampleRate);
+    c.fillStyle = tr.color || cssVar("--muted");
+    for (let x = 0; x < W; x++) {
+      const t0 = Math.floor(x / W * end * buf.sampleRate) + off; let m = 0;
+      for (let j = 0; j < step; j += 4) { const v = Math.abs(d[t0 + j] || 0); if (v > m) m = v; }
+      const h = Math.max(1, m * H * 0.9); c.fillRect(x, (H - h) / 2, 1, h);
+    }
+    return;
+  }
+  const ns = data && data.tracks[tr.id]; if (!ns || !ns.length) return;
+  let lo = 127, hi = 0; ns.forEach(n => { lo = Math.min(lo, n[2]); hi = Math.max(hi, n[2]); });
+  lo -= 1; hi += 1; const rh = Math.max(2 * dpr, H / (hi - lo + 1));
+  c.fillStyle = tr.pad ? cssVar("--solo") : cssVar("--accent");
+  ns.forEach(([t, d, p, v]) => { c.globalAlpha = 0.35 + 0.65 * v / 127; c.fillRect(t / end * W, H - (p - lo + 1) / (hi - lo + 1) * H, Math.max(1.5 * dpr, Math.max(d, 0.08) / end * W), rh); });
+  c.globalAlpha = 1;
+}
+
+let midiRendered = "";
+async function midiRender() {
+  const s = SONGS[cur], k = act + "-" + s.n;
+  if (M.playing && midiRendered !== k) midiStop(false);
+  if (midiRendered !== k) { M.pos = 0; M.end = s.dur; M.data = null; }
+  midiRendered = k;
+  $("midiSong").textContent = ACTS[act].title + " · " + s.n + " " + s.title;
+  $("midiAll").href = midiBase() + "_strings.mid"; $("midiAll").setAttribute("download", songSlug() + "_strings.mid");
+  $("midiZip").href = midiBase() + "_midi.zip"; $("midiZip").setAttribute("download", songSlug() + "_MIDI.zip");
+  const box = $("midiRows"); box.innerHTML = "";
+  const lanes = {};
+  MTRACKS.forEach(tr => {
+    const row = document.createElement("div"); row.className = "mrow" + (tr.take ? " syn2" : "");
+    const b = document.createElement("button"); b.className = "mt"; b.setAttribute("aria-pressed", String(isOn(tr.id)));
+    b.title = "Mute or unmute " + tr.label; b.innerHTML = "<span></span><small></small>"; b.firstChild.textContent = tr.label; b.lastChild.textContent = tr.sub;
+    b.onclick = () => { MON[tr.id] = !isOn(tr.id); store.set("mp_midi_on", JSON.stringify(MON)); b.setAttribute("aria-pressed", String(isOn(tr.id)));
+      if (M.gains[tr.id]) M.gains[tr.id].gain.setTargetAtTime(isOn(tr.id) ? 1 : 0, ctx.currentTime, 0.02);
+      if (M.playing && (tr.audio || tr.take) && isOn(tr.id)) { midiStop(true); midiPlay(); } };
+    const lane = document.createElement("div"); lane.className = "lane"; const cv = document.createElement("canvas"); lane.append(cv); lanes[tr.id] = cv;
+    lane.onclick = e => { const r = lane.getBoundingClientRect(); midiSeek((e.clientX - r.left) / r.width); };
+    const acts = document.createElement("div"); acts.className = "macts";
+    const dl = (href, name, text) => { const a = document.createElement("a"); a.className = "btn"; a.href = href; a.setAttribute("download", name); a.textContent = text; return a; };
+    if (!tr.audio && !tr.take) acts.append(dl(midiBase() + "_" + tr.id + ".mid", songSlug() + "_" + tr.id + ".mid", ".mid"));
+    if (tr.audio) { acts.append(dl(songFile(cur, "band"), songSlug() + "_Band.m4a", "Audio")); const e = document.createElement("span"); e.className = "empty"; e.textContent = "Band mix"; lane.append(e); }
+    if (tr.take) {
+      const sel = document.createElement("select"); sel.id = "synthSel"; sel.setAttribute("aria-label", "Syn2 take");
+      const up = document.createElement("button"); up.className = "small"; up.textContent = "Upload"; up.onclick = synthUploadStart;
+      const rc = document.createElement("button"); rc.className = "small rec"; rc.textContent = "Record"; rc.onclick = () => openRecorder("synth");
+      const get = document.createElement("button"); get.className = "small"; get.id = "synthGet"; get.textContent = "Audio"; get.onclick = synthDownload;
+      const e = document.createElement("span"); e.className = "empty"; e.id = "synthEmpty"; lane.append(e);
+      acts.append(sel, up, rc, get);
+    }
+    row.append(b, lane, acts); box.append(row);
+  });
+  M.lanes = lanes;
+  renderSynthTakes();
+  midiUI(); midiShowPos(M.pos);
+  let data = null; try { data = await midiData(act, s.n); } catch (e) { $("midiNote2").textContent = "This song's MIDI isn't on the site yet."; return; }
+  if (midiRendered !== k) return;
+  $("midiNote2").textContent = ""; M.end = data.end; midiShowPos(M.pos);
+  M.lanesData = data;
+  MTRACKS.filter(tr => !tr.audio && !tr.take).forEach(tr => drawLane(lanes[tr.id], tr, data));
+  drawBand();
+}
+function drawBand() {
+  const s = SONGS[cur], k = midiRendered, f = songFile(cur, "band"), cv = M.lanes && M.lanes.band;
+  if (!cv || !cache.has(f)) return;  // drawn once the Band has been loaded for playback
+  cache.get(f).then(b => {
+    if (midiRendered !== k) return;
+    drawLane(cv, { id: "band" }, M.lanesData, b);
+    const e = cv.parentNode.querySelector(".empty"); if (e) e.hidden = true;
+  }).catch(() => {});
+}
+
+function renderSynthTakes() {
+  const sel = $("synthSel"); if (!sel) return;
+  const s = SONGS[cur], takes = takesFor(cur, "synth");
+  sel.innerHTML = ""; const o0 = document.createElement("option"); o0.value = ""; o0.textContent = takes.length ? "No take" : "No takes yet"; sel.append(o0);
+  takes.forEach(t => { const o = document.createElement("option"); o.value = t.id; o.textContent = takeLabel(t); sel.append(o); });
+  sel.value = picks.synth[key(act, s.n)] || ""; sel.disabled = !takes.length; $("synthGet").disabled = !sel.value;
+  sel.onchange = () => { picks.synth[key(act, s.n)] = sel.value; $("synthGet").disabled = !sel.value; if (M.playing) { midiStop(true); midiPlay(); } drawSynth(); };
+  $("synthEmpty").textContent = BACKEND_URL ? "Record or upload your part" : "Takes library not connected";
+  drawSynth();
+}
+function drawSynth() {
+  const t = synthTake(), cv = M.lanes && M.lanes.syn2; if (!cv) return;
+  const e = $("synthEmpty"); if (!t) { cv.getContext("2d").clearRect(0, 0, cv.width, cv.height); e.hidden = false; return; }
+  e.hidden = true; const k = midiRendered;
+  loadTake(t).then(b => { if (k === midiRendered) drawLane(cv, { id: "syn2", offset: t.offset || 0, color: cssVar("--rec") }, M.lanesData, b); }).catch(() => { e.hidden = false; e.textContent = "Couldn't load that take"; });
+}
+
+async function synthDownload() {
+  const t = synthTake(); if (!t) return;
+  $("midiNote2").textContent = "Preparing the take…";
+  try {
+    let blob;
+    if (t.file) blob = await (await fetch(t.file)).blob();
+    else { const j = await api("get", { id: t.id }); blob = new Blob([Uint8Array.from(atob(j.data), c => c.charCodeAt(0))], { type: j.mime || "audio/wav" }); }
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = songSlug() + "_Syn2_" + t.handle.replace(/[^A-Za-z0-9]/g, "") + ".wav"; a.click();
+    $("midiNote2").textContent = "";
+  } catch (e) { $("midiNote2").textContent = "Couldn't download that take (" + e.message + ")."; }
+}
+
+async function synthUploadStart() {
+  if (!BACKEND_URL) { $("midiNote2").textContent = "The takes library isn't connected, so uploads aren't possible yet."; return; }
+  if (!me.email) await refreshTakes();
+  if (!me.email) { acctWanted = true; fillPlayers(); $("acctPanel").scrollIntoView({ behavior: "smooth", block: "nearest" }); $("midiNote2").textContent = "Sign in first (above), then press Upload again."; return; }
+  $("synthFile").value = ""; $("synthFile").click();
+}
+$("synthFile").onchange = async () => {
+  const f = $("synthFile").files[0]; if (!f) return;
+  const i = cur, a = act, s = SONGS[i];
+  $("midiNote2").textContent = "Reading " + f.name + "…";
+  try {
+    audio(); const buf = await ctx.decodeAudioData(await f.arrayBuffer());
+    let end = M.end || s.dur; try { end = (await midiData(a, s.n)).end; } catch (e) {}
+    const keep = Math.min(buf.length, Math.ceil((end + 4) * buf.sampleRate));
+    const mono = new Float32Array(keep);
+    for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let j = 0; j < keep; j++) mono[j] += d[j] / buf.numberOfChannels; }
+    const wav = await toWav24k(mono, buf.sampleRate);
+    const dur = keep / buf.sampleRate;
+    const priv = store.get("mp_priv") === "private";
+    $("midiNote2").textContent = "Uploading " + fmtT(dur) + " to the takes library…";
+    const b64 = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(",")[1]); fr.onerror = rej; fr.readAsDataURL(wav); });
+    const j = await api("upload", { act: +a, song: s.n, kind: "synth", private: priv, dur, offset: 0, mime: "audio/wav", data: b64 });
+    takeBufs.set(j.id, ctx.decodeAudioData(await wav.arrayBuffer()));
+    picks.synth[key(a, s.n)] = j.id; await refreshTakes();
+    $("midiNote2").textContent = "Uploaded" + (buf.duration > dur + 0.5 ? " (trimmed to the end of the song)" : "") + ". It's selected on Syn2" + (priv ? " and only you and the director can hear it." : ".");
+  } catch (e) {
+    $("midiNote2").textContent = e.message === "bad_kind" ? "The takes library needs its update before it can store Syn2 parts." : e.message === "too_big" ? "That file is too long to upload." : "Couldn't upload that file (" + (e.message || "unreadable audio") + ").";
+  }
+};
+$("midiPlay").onclick = midiPlay;
+window.addEventListener("resize", () => { clearTimeout(M.rz); M.rz = setTimeout(() => { if (M.lanesData) { MTRACKS.filter(tr => !tr.audio && !tr.take).forEach(tr => drawLane(M.lanes[tr.id], tr, M.lanesData)); drawSynth(); drawBand(); } }, 200); });
 
 // ---------------- start ----------------
 renderAct(); renderWho(); setStatus("Press Play. Songs load as you reach them.");
