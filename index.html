@@ -43,7 +43,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, .line:focus-vis
 button:disabled { opacity: .45; cursor: not-allowed; }
 button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); min-width: 96px; }
 button.rec { color: var(--rec); border-color: var(--rec); }
-button.rec::before { content: "●"; margin-right: 6px; }
+button.rec::before { content: "●"; margin-right: 5px; }
 button.rec.on { background: var(--rec); color: var(--bg); }
 button[aria-pressed="true"].toggle { background: var(--spot); color: var(--spot-ink); border-color: var(--spot); }
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
@@ -158,6 +158,21 @@ a.btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
 .rvdlg:not([open]) { display: none; }
 .rvdlg::backdrop { background: rgba(0,0,0,.45); }
 #rvOpen.has { border-color: var(--accent); color: var(--accent); }
+/* compact transport */
+.np { gap: 10px; padding: 12px 14px; }
+.nphead { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
+.nptitle { flex: 0 1 auto; min-width: 0; display: flex; align-items: baseline; gap: 10px; }
+.nptitle h2 { font-size: clamp(18px, 3.4vw, 24px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.nptitle .eyebrow { white-space: nowrap; }
+.nphead .note { font-size: 13px; flex: 1 1 100px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }
+.nphead .pos { margin-left: 0; font-size: 13px; line-height: 1.3; width: auto !important; }
+@media (max-width: 600px) { .nphead .note { flex-basis: 100%; order: 3; text-align: left; } .nptitle { flex-basis: 100%; } }
+.ctl { display: flex; flex-wrap: nowrap; gap: 5px; align-items: center; overflow-x: auto; scrollbar-width: thin; padding-bottom: 2px; }
+.ctl > * { flex: 0 0 auto; }
+.ctl button { padding: 6px 9px; font-size: 14px; }
+.ctl button.primary { min-width: 64px; }
+.ctl .seg button { padding: 6px 9px; font-size: 14px; }
+.ctl .sep { width: 1px; align-self: stretch; background: var(--line); margin: 2px 2px; }
 [hidden] { display: none !important; }
 @media (max-width: 600px) {
   .cdrawer { margin-left: 6px; }
@@ -185,6 +200,34 @@ a.btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
     </div>
   </header>
 
+  <section class="panel np" aria-label="Now playing">
+    <div class="nphead">
+      <div class="nptitle"><span class="eyebrow" id="npScene"></span><h2 id="npTitle"></h2></div>
+      <p class="note" id="status">Press Play. Songs load as you reach them.</p>
+      <div class="pos" id="pos"></div>
+      <span class="stage" id="stage">Ready</span>
+    </div>
+    <div class="ctl">
+      <button id="prev" aria-label="Previous song">◀︎</button>
+      <button id="play" class="primary">Play</button>
+      <button id="next" aria-label="Next song">▶︎</button>
+      <button id="loop" class="toggle" aria-pressed="false">Loop</button>
+      <span class="sep" aria-hidden="true"></span>
+      <div class="seg" role="group" aria-label="Mix">
+        <button data-mix="band" aria-pressed="false">Band</button>
+        <button data-mix="bandvox" aria-pressed="true">Band+Vox</button>
+      </div>
+      <button id="through" class="toggle" aria-pressed="true" title="Play through the act">Through act</button>
+      <button id="dlgToggle" class="toggle" aria-pressed="false" title="Play dialogue between songs">Dialogue</button>
+      <button id="skip" hidden>Skip dialogue</button>
+      <span class="sep" aria-hidden="true"></span>
+      <button id="recVocal" class="rec">Vocal</button>
+      <button id="recSolo" class="rec">Gtr solo</button>
+      <button id="midiToggle" class="toggle" aria-pressed="false" aria-controls="midiPanel" title="MIDI tracks for synth players">MIDI</button>
+    </div>
+    <div class="bar" id="bar" role="slider" tabindex="0" aria-label="Position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="soloZone" id="soloZone" hidden></span><i id="fill"></i></div>
+  </section>
+
   <section class="panel" aria-label="Running order">
     <div class="row">
       <h2 style="flex:1">Running order</h2>
@@ -196,36 +239,6 @@ a.btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
     <div class="songs" id="songs"></div>
   </section>
 
-  <section class="panel" aria-label="Now playing">
-    <div class="row">
-      <div style="min-width:0;flex:1 1 260px">
-        <div class="eyebrow" id="npScene"></div>
-        <h2 id="npTitle"></h2>
-      </div>
-      <span class="stage" id="stage">Ready</span>
-    </div>
-    <div class="row">
-      <button id="prev" aria-label="Previous song">◀︎</button>
-      <button id="play" class="primary">Play</button>
-      <button id="next" aria-label="Next song">▶︎</button>
-      <button id="loop" class="toggle" aria-pressed="false">Loop</button>
-      <button id="recVocal" class="rec">Vocal</button>
-      <button id="recSolo" class="rec">Gtr solo</button>
-      <div class="pos" id="pos"></div>
-    </div>
-    <div class="bar" id="bar" role="slider" tabindex="0" aria-label="Position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="soloZone" id="soloZone" hidden></span><i id="fill"></i></div>
-    <div class="row">
-      <div class="seg" role="group" aria-label="Mix">
-        <button data-mix="band" aria-pressed="false">Band</button>
-        <button data-mix="bandvox" aria-pressed="true">Band + Vox</button>
-      </div>
-      <button id="through" class="toggle" aria-pressed="true">Play through the act</button>
-      <button id="dlgToggle" class="toggle" aria-pressed="false">Play dialogue</button>
-      <button id="midiToggle" class="toggle" aria-pressed="false" aria-controls="midiPanel">MIDI tracks</button>
-      <button id="skip" hidden>Skip dialogue</button>
-    </div>
-    <p class="note" id="status">Press Play. Songs load as you reach them.</p>
-  </section>
 
   <section class="panel" id="acctPanel" aria-label="Sign in" hidden>
     <div class="row">
@@ -788,7 +801,7 @@ function renderNow() {
   const p = makePlan(cur), z = $("soloZone");
   if (p.take) { z.hidden = false; z.style.left = (p.dur / p.end * 100) + "%"; z.style.width = ((p.end - p.dur) / p.end * 100) + "%"; } else z.hidden = true;
   $("fill").style.width = "0%";
-  $("pos").innerHTML = "<b>Bar 1 · beat 1</b><br>0:00 / " + fmtT(p.end);
+  $("pos").innerHTML = "<b>Bar 1 · beat 1</b> · 0:00 / " + fmtT(p.end);
   $("stage").textContent = "Ready"; $("stage").className = "stage";
   if (!$("recPanel").hidden) recLabels();
   midiRender();
@@ -889,24 +902,24 @@ function tick() {
   if (rec.state === "recording") { /* recorder draws its own status */ }
   else if (loopMode) {
     const p = (ctx.currentTime - loopStart) % s.loopDur, spb = 60 / s.bpm;
-    $("pos").innerHTML = "<b>Loop · bar " + (Math.floor(p / spb / s.meter) + 1) + " of " + s.loopBars + "</b><br>repeating";
+    $("pos").innerHTML = "<b>Loop · bar " + (Math.floor(p / spb / s.meter) + 1) + " of " + s.loopBars + "</b> · repeating";
     st.textContent = "Loop"; st.className = "stage count";
   } else if (dlg && (phase === "before" || phase === "after")) {
     st.textContent = playing ? "Dialogue" : "Paused"; st.className = "stage dlg";
     const n = dlg.lines.filter(l => l.x).length, k = dlg.lines.slice(0, dlg.k + 1).filter(l => l.x).length;
-    $("pos").innerHTML = "<b>Line " + Math.min(k, n) + " of " + n + "</b><br>" + (dlg.which === "before" ? "before the song" : "after the song");
+    $("pos").innerHTML = "<b>Line " + Math.min(k, n) + " of " + n + "</b> · " + (dlg.which === "before" ? "before the song" : "after the song");
   } else if (plan) {
     const pos = posNow(), p = plan;
     $("fill").style.width = Math.min(100, pos / p.end * 100) + "%";
     $("bar").setAttribute("aria-valuenow", String(Math.round(pos / p.end * 100)));
     if (pos < p.dur) {
       const beats = pos / p.spb;
-      $("pos").innerHTML = "<b>Bar " + (Math.floor(beats / s.meter) + 1) + " · beat " + (Math.floor(beats % s.meter) + 1) + "</b><br>" + fmtT(pos) + " / " + fmtT(p.end);
+      $("pos").innerHTML = "<b>Bar " + (Math.floor(beats / s.meter) + 1) + " · beat " + (Math.floor(beats % s.meter) + 1) + "</b> · " + fmtT(pos) + " / " + fmtT(p.end);
       st.textContent = playing ? (vocalTake(cur) ? "Song · " + vocalTake(cur).handle : "Song") : "Paused"; st.className = "stage";
       showLine(beats);
-    } else if (p.take && pos < p.countAt) { st.textContent = "Pause"; st.className = "stage"; $("pos").innerHTML = "<b>Solo coming up</b><br>" + fmtT(pos) + " / " + fmtT(p.end); }
-    else if (p.take && pos < p.loopAt) { const k = Math.floor((pos - p.countAt) / p.spb) + 1; st.textContent = "Count-in"; st.className = "stage count"; $("pos").innerHTML = "<b>Count-in · " + k + "</b><br>" + fmtT(pos) + " / " + fmtT(p.end); }
-    else if (p.take) { const pass = Math.min(p.passes, Math.floor((pos - p.loopAt) / s.loopDur) + 1); st.textContent = "Solo · " + p.take.handle; st.className = "stage solo"; $("pos").innerHTML = "<b>Solo · pass " + pass + " of " + p.passes + "</b><br>" + fmtT(pos) + " / " + fmtT(p.end); }
+    } else if (p.take && pos < p.countAt) { st.textContent = "Pause"; st.className = "stage"; $("pos").innerHTML = "<b>Solo coming up</b> · " + fmtT(pos) + " / " + fmtT(p.end); }
+    else if (p.take && pos < p.loopAt) { const k = Math.floor((pos - p.countAt) / p.spb) + 1; st.textContent = "Count-in"; st.className = "stage count"; $("pos").innerHTML = "<b>Count-in · " + k + "</b> · " + fmtT(pos) + " / " + fmtT(p.end); }
+    else if (p.take) { const pass = Math.min(p.passes, Math.floor((pos - p.loopAt) / s.loopDur) + 1); st.textContent = "Solo · " + p.take.handle; st.className = "stage solo"; $("pos").innerHTML = "<b>Solo · pass " + pass + " of " + p.passes + "</b> · " + fmtT(pos) + " / " + fmtT(p.end); }
   }
   requestAnimationFrame(tick);
 }
@@ -1103,7 +1116,7 @@ $("recGo").onclick = async () => {
   rec.state = "recording"; $("recGo").textContent = "Stop"; $("recGo").classList.add("on");
   ["recListen", "recSave", "recDiscard", "recCalibrate"].forEach(id => $(id).disabled = true);
   $("stage").textContent = "Recording"; $("stage").className = "stage rec";
-  rec.ticker = setInterval(() => { const t = Math.max(0, ctx.currentTime - rec.t0); $("pos").innerHTML = "<b>Recording</b><br>" + fmtT(t) + (rec.kind !== "solo" ? " / " + fmtT(s.dur) : ""); }, 200);
+  rec.ticker = setInterval(() => { const t = Math.max(0, ctx.currentTime - rec.t0); $("pos").innerHTML = "<b>Recording</b> · " + fmtT(t) + (rec.kind !== "solo" ? " / " + fmtT(s.dur) : ""); }, 200);
 };
 function stopRecording() {
   if (rec.state !== "recording") return;
