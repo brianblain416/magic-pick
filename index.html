@@ -154,6 +154,10 @@ a.btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
 .macts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: flex-end; }
 .macts select { font-size: 13px; padding: 5px 6px; max-width: 170px; }
 .mrow.syn2 { border-top: 1px dashed var(--line); padding-top: 8px; }
+.rvdlg { width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 48px); overflow-y: auto; color: var(--ink); padding: 18px; }
+.rvdlg:not([open]) { display: none; }
+.rvdlg::backdrop { background: rgba(0,0,0,.45); }
+#rvOpen.has { border-color: var(--accent); color: var(--accent); }
 [hidden] { display: none !important; }
 @media (max-width: 600px) {
   .cdrawer { margin-left: 6px; }
@@ -180,6 +184,17 @@ a.btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
       <button data-act="2" aria-pressed="false">Act 2</button>
     </div>
   </header>
+
+  <section class="panel" aria-label="Running order">
+    <div class="row">
+      <h2 style="flex:1">Running order</h2>
+      <span class="who-bar" id="whoBar"></span>
+      <button id="whoSign" class="small" hidden>Sign in</button>
+      <button id="rvOpen" class="small" hidden aria-haspopup="dialog">Script edits</button>
+    </div>
+    <p class="note">Pick a vocal take to sing along with a cast member instead of the guide vocal, or a guitar solo to play after the song: a bar's pause, two bars of click, then the Loop repeats under the solo. Turn on <b>Play dialogue</b> to read each scene between songs.</p>
+    <div class="songs" id="songs"></div>
+  </section>
 
   <section class="panel" aria-label="Now playing">
     <div class="row">
@@ -297,26 +312,18 @@ a.btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
     <p class="note" id="lyrNote"></p>
   </section>
 
-  <section class="panel" id="reviewPanel" aria-label="Script edits" hidden>
+
+  <dialog class="panel rvdlg" id="reviewPanel" aria-label="Script edits">
     <div class="row">
       <h2 style="flex:1">Script edits</h2>
       <button id="rvUpdate" class="primary" disabled>Update</button>
+      <button id="rvClose" aria-label="Close">Close</button>
     </div>
     <p class="note" id="rvIntro">Tick the suggestions you want and press Update. The ticked wording replaces the line on the site for everyone. Other suggestions stay saved as each person's version.</p>
     <div class="rv" id="rvList"></div>
     <div class="rv-pend" id="rvPend"></div>
     <p class="note" id="rvNote"></p>
-  </section>
-
-  <section class="panel" aria-label="Running order">
-    <div class="row">
-      <h2 style="flex:1">Running order</h2>
-      <span class="who-bar" id="whoBar"></span>
-      <button id="whoSign" class="small" hidden>Sign in</button>
-    </div>
-    <p class="note">Pick a vocal take to sing along with a cast member instead of the guide vocal, or a guitar solo to play after the song: a bar's pause, two bars of click, then the Loop repeats under the solo. Turn on <b>Play dialogue</b> to read each scene between songs.</p>
-    <div class="songs" id="songs"></div>
-  </section>
+  </dialog>
 </main>
 
 <script src="config.js"></script>
@@ -584,7 +591,7 @@ function renderViewSel() {
 
 // Director only: every open comment in this act, grouped by line, with the Update button.
 function renderReview() {
-  const panel = $("reviewPanel"); panel.hidden = !IS_ADMIN; if (!IS_ADMIN) return;
+  $("rvOpen").hidden = !IS_ADMIN; if (!IS_ADMIN) { if ($("reviewPanel").open) $("reviewPanel").close(); return; }
   const list = $("rvList"); list.innerHTML = "";
   const open = COMMENTS.filter(c => c.status === "open" && String(c.act) === act);
   const groups = new Map();
@@ -598,7 +605,7 @@ function renderReview() {
     const w = mk("button", "rv-where", s.n + " " + s.title + " · " + where);
     w.style.cssText = "background:none;border:0;padding:0;text-align:left;cursor:pointer";
     w.title = "Show this line";
-    w.onclick = () => { if (cur !== songIdx(c0.song)) select(songIdx(c0.song)); if (c0.part === "lyrics") showLyrics(true); else showDialogueBrowse(); OPEN = cOf(c0); rerenderLines(); $("lyrics").closest("section").scrollIntoView({ behavior: "smooth", block: "start" }); };
+    w.onclick = () => { $("reviewPanel").close(); if (cur !== songIdx(c0.song)) select(songIdx(c0.song)); if (c0.part === "lyrics") showLyrics(true); else showDialogueBrowse(); OPEN = cOf(c0); rerenderLines(); $("lyrics").closest("section").scrollIntoView({ behavior: "smooth", block: "start" }); };
     row.append(w, mk("div", "rv-cur", (now.dir ? "(" + now.dir + ") " : "") + now.text));
     cs.sort(byTime("created")).forEach(c => {
       if (c.kind === "replace") {
@@ -612,6 +619,7 @@ function renderReview() {
     });
     list.append(row);
   });
+  $("rvOpen").textContent = groups.size ? "Script edits (" + groups.size + ")" : "Script edits"; $("rvOpen").classList.toggle("has", groups.size > 0);
   if (!groups.size) list.append(mk("p", "note", "No open comments in " + ACTS[act].title + "."));
   $("rvUpdate").textContent = TICK.size ? "Update " + TICK.size + (TICK.size === 1 ? " line" : " lines") : "Update";
   $("rvUpdate").disabled = !TICK.size;
@@ -623,6 +631,9 @@ function renderReview() {
     pend.append(mk("p", "note", "Ask Claude to “apply the approved script edits” to rename these clips in Ableton and rebuild the site's text."));
   }
 }
+$("rvOpen").onclick = () => { renderReview(); $("rvNote").textContent = ""; $("reviewPanel").showModal(); };
+$("rvClose").onclick = () => $("reviewPanel").close();
+$("reviewPanel").addEventListener("click", e => { const r = $("reviewPanel").getBoundingClientRect(); if (e.target === $("reviewPanel") && (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom)) $("reviewPanel").close(); });
 $("rvUpdate").onclick = async () => {
   const ids = [...TICK]; if (!ids.length) return;
   $("rvUpdate").disabled = true; $("rvNote").textContent = "Updating…";
