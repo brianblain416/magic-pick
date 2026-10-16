@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Magic Pick Rehearsal</title>
+<title>Magic Pick Player</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bowlby+One+SC&family=Karla:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -27,7 +27,16 @@
   --robbie: #63b6d3; --melissa: #f07fb4; --clive: #e2b04a; color-scheme: dark }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.5; }
-.wrap { max-width: 860px; margin: 0 auto; padding: 24px 16px 56px; display: grid; gap: 18px; }
+.wrap { max-width: 860px; margin: 0 auto; padding: 12px 16px 56px; display: grid; gap: 10px; }
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.top h1 { flex: 1 1 auto; font-size: clamp(22px, 5vw, 30px); margin: 0; }
+.top .tabs button { font-size: 15px; padding: 4px 12px; }
+.npinfo { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
+.npinfo .meta { flex: 1 1 220px; font-size: 12px; }
+.npinfo .picks { display: flex; flex-wrap: wrap; gap: 8px; }
+.npinfo .pick { display: flex; align-items: center; gap: 6px; }
+#mode { font-size: 14px; padding: 6px 8px; font-weight: 700; }
+#status { font-size: 13px; min-height: 1.4em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 h1 { font-family: var(--display); font-weight: 400; font-size: clamp(30px, 7vw, 46px); line-height: 1.02; margin: 4px 0; }
 h2 { font-family: var(--display); font-weight: 400; font-size: clamp(22px, 5vw, 30px); line-height: 1.05; margin: 0; text-wrap: balance; }
@@ -73,8 +82,8 @@ button.quiet { font-weight: 500; color: var(--muted); }
 .signbox .note { flex: 1 1 100%; }
 .muted { color: var(--muted); }
 .note { font-size: 14px; color: var(--muted); margin: 0; }
-.lyrics { display: grid; gap: 2px; max-height: 380px; overflow-y: auto; }
-.line { display: grid; grid-template-columns: 64px minmax(0,1fr); gap: 12px; align-items: baseline; padding: 7px 10px; border-radius: 8px; cursor: pointer; }
+.lyrics { display: grid; gap: 2px; max-height: max(240px, calc(100dvh - 330px)); overflow-y: auto; align-content: start; }
+.line { display: grid; grid-template-columns: 64px minmax(0,1fr); gap: 12px; align-items: baseline; padding: 5px 10px; border-radius: 8px; cursor: pointer; }
 .line .at { font-family: var(--mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .line .tx { font-size: 19px; font-weight: 500; text-transform: uppercase; letter-spacing: .02em; color: var(--muted); }
 .line.past .tx { color: var(--ink); opacity: .55; }
@@ -167,14 +176,14 @@ a.btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
 .rvdlg::backdrop { background: rgba(0,0,0,.45); }
 #rvOpen.has { border-color: var(--accent); color: var(--accent); }
 /* compact transport */
-.np { gap: 10px; padding: 12px 14px; }
+.np { gap: 8px; padding: 10px 14px; }
 .nphead { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
 .nptitle { flex: 0 1 auto; min-width: 0; display: flex; align-items: baseline; gap: 10px; }
 .nptitle h2 { font-size: clamp(18px, 3.4vw, 24px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .nptitle .eyebrow { white-space: nowrap; }
-.nphead .note { font-size: 13px; flex: 1 1 100px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }
 .nphead .pos { margin-left: 0; font-size: 13px; line-height: 1.3; width: auto !important; }
-@media (max-width: 600px) { .nphead .note { flex-basis: 100%; order: 3; text-align: left; } .nptitle { flex-basis: 100%; } }
+.nptitle { flex: 1 1 auto; }
+@media (max-width: 600px) { .nptitle { flex-basis: 100%; } }
 .ctl { display: flex; flex-wrap: nowrap; gap: 5px; align-items: center; overflow-x: auto; scrollbar-width: thin; padding-bottom: 2px; }
 .ctl > * { flex: 0 0 auto; }
 .ctl button { padding: 6px 9px; font-size: 14px; }
@@ -183,6 +192,9 @@ a.btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
 .ctl .sep { width: 1px; align-self: stretch; background: var(--line); margin: 2px 2px; }
 [hidden] { display: none !important; }
 @media (max-width: 600px) {
+  .wrap { padding-top: 8px; gap: 8px; }
+  .line { grid-template-columns: 36px minmax(0,1fr) auto; gap: 8px; padding: 4px 6px; }
+  .line .tx { font-size: 16px; } .dlgline .tx { font-size: 16px; }
   .cdrawer { margin-left: 6px; }
   .song { grid-template-columns: 28px minmax(0,1fr); }
   .song .picks { grid-column: 2; grid-row: auto; flex-wrap: wrap; }
@@ -196,55 +208,57 @@ a.btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
 </head>
 <body>
 <main class="wrap">
-  <header class="row" style="align-items:flex-end">
-    <div style="flex:1 1 280px">
-      <div class="eyebrow">Magic Pick · Rehearsal player</div>
-      <h1 id="actTitle">Act 1</h1>
-      <div class="meta" id="actMeta"></div>
-    </div>
+  <header class="top">
+    <h1>Magic Pick Player</h1>
     <div class="seg tabs" role="group" aria-label="Act">
       <button data-act="1" aria-pressed="true">Act 1</button>
       <button data-act="2" aria-pressed="false">Act 2</button>
     </div>
+    <button id="roToggle" class="small" aria-expanded="false" aria-controls="roPanel">Show running order</button>
+    <button id="recToggle" class="toggle small" aria-pressed="false" aria-controls="recArea" title="Record a vocal or guitar part, or get the MIDI">Recording</button>
+    <span class="who-bar" id="whoBar"></span>
+    <button id="whoSign" class="small" hidden>Sign in</button>
+    <button id="rvOpen" class="small" hidden aria-haspopup="dialog">Script edits</button>
   </header>
 
   <section class="panel np" aria-label="Now playing">
     <div class="nphead">
-      <div class="nptitle"><span class="eyebrow" id="npScene"></span><h2 id="npTitle"></h2></div>
-      <p class="note" id="status">Press Play. Songs load as you reach them.</p>
+      <div class="nptitle"><span class="eyebrow" id="npNum"></span><h2 id="npTitle"></h2></div>
       <div class="pos" id="pos"></div>
       <span class="stage" id="stage">Ready</span>
     </div>
+    <div class="npinfo"><span class="meta" id="npInfo"></span><span class="picks" id="npPicks"></span></div>
     <div class="ctl">
       <button id="prev" aria-label="Previous song">◀︎</button>
       <button id="play" class="primary">Play</button>
       <button id="next" aria-label="Next song">▶︎</button>
-      <button id="loop" class="toggle" aria-pressed="false">Loop</button>
+      <select id="mode" aria-label="What to play">
+        <option value="dlg">Play with dialogue</option>
+        <option value="solo">Play with solos</option>
+        <option value="both">Play with dialogue and solos</option>
+        <option value="songs">Play songs only</option>
+      </select>
+      <button id="skip" hidden>Skip dialogue</button>
       <span class="sep" aria-hidden="true"></span>
       <div class="seg" role="group" aria-label="Mix">
         <button data-mix="band" aria-pressed="false">Band</button>
         <button data-mix="bandvox" aria-pressed="true">Band+Vox</button>
       </div>
       <button id="through" class="toggle" aria-pressed="true" title="Play through the act">Through act</button>
-      <button id="dlgToggle" class="toggle" aria-pressed="false" title="Play dialogue between songs">Dialogue</button>
-      <button id="skip" hidden>Skip dialogue</button>
-      <span class="sep" aria-hidden="true"></span>
-      <button id="recToggle" class="toggle quiet" aria-pressed="false" aria-controls="recArea" title="Record a vocal or guitar part, or get the MIDI">Recording</button>
+      <button id="loop" class="toggle" aria-pressed="false">Loop</button>
     </div>
     <div class="bar" id="bar" role="slider" tabindex="0" aria-label="Position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="soloZone" id="soloZone" hidden></span><i id="fill"></i></div>
+    <p class="note" id="status">Press Play. Songs load as you reach them.</p>
   </section>
 
-  <section class="panel" aria-label="Running order">
+  <section class="panel" id="roPanel" aria-label="Running order" hidden>
     <div class="row">
-      <h2 style="flex:1">Running order</h2>
-      <span class="who-bar" id="whoBar"></span>
-      <button id="whoSign" class="small" hidden>Sign in</button>
-      <button id="rvOpen" class="small" hidden aria-haspopup="dialog">Script edits</button>
+      <div class="eyebrow" style="flex:1" id="actMeta"></div>
+      <button id="roClose" class="small">Hide</button>
     </div>
-    <p class="note">Pick a vocal take to sing along with a cast member instead of the guide vocal, or a guitar solo to play after the song: a bar's pause, two bars of click, then the Loop repeats under the solo. Turn on <b>Play dialogue</b> to hear each scene between songs.</p>
+    <p class="note">Tap a song to play it. Pick a vocal take to sing along with a cast member instead of the guide vocal, or a guitar solo to play after the song (with <b>Play with solos</b>): a bar's pause, two bars of click, then the Loop repeats under the solo.</p>
     <div class="songs" id="songs"></div>
   </section>
-
 
   <section class="panel" aria-label="Lyrics and dialogue">
     <div class="lyrbar">
@@ -695,7 +709,14 @@ $("whoSign").onclick = showAcct;
 
 // ---------------- playback sequence ----------------
 // For each song: [dialogue before] -> song -> [solo] -> [dialogue after] -> next song
-let cur = 0, mix = "bandvox", through = true, dialogueOn = store.get("mp_dlg") === "1";
+// play mode: dialogue between (and inside) songs, guitar solos after songs, both, or songs only
+const MODES = ["dlg", "solo", "both", "songs"];
+let playMode = MODES.includes(store.get("mp_mode")) ? store.get("mp_mode") : "dlg";
+let cur = 0, mix = "bandvox", through = true, dialogueOn, solosOn;
+function setMode(m) {
+  playMode = m; store.set("mp_mode", m); $("mode").value = m;
+  dialogueOn = m === "dlg" || m === "both"; solosOn = m === "solo" || m === "both";
+}
 let phase = "song", playing = false, loopMode = false, plan = null, timer = null, run = 0;
 let dlg = null; // {i, which, lines, k, until}
 let loopStart = 0;
@@ -710,7 +731,7 @@ const hasDlg = (i, which) => dlgLines(i, which).some(l => l.x);
 function lineSecs(l) { if (!l.x) return 0.8; const w = (l.x[2] + " " + l.x[1]).split(/\s+/).length; return Math.min(9, Math.max(2.4, 1.2 + w * 0.36)); }
 
 function makePlan(i) {
-  const s = SONGS[i], spb = 60 / s.bpm, bar = spb * s.meter, t = soloTake(i);
+  const s = SONGS[i], spb = 60 / s.bpm, bar = spb * s.meter, t = solosOn ? soloTake(i) : null;
   const p = { i, dur: s.dur, spb, bar, take: t };
   if (t) { p.countAt = s.dur + bar; p.loopAt = p.countAt + 2 * bar; p.passes = Math.max(1, Math.round(t.dur / s.loopDur)); p.end = p.loopAt + p.passes * s.loopDur; }
   else p.end = s.dur;
@@ -769,6 +790,7 @@ async function playSong(i, pos, my) {
     if (at + b.duration > pos) src(b, st + at, Math.max(0, pos - at));
     p.dl.push({ at, end: at + b.duration - 0.3, txt: x[0] + ": " + x[2] });
   });
+  if (!p.take && p.dl.length) p.end = Math.max(p.end, p.dl[p.dl.length - 1].end + 0.5);
   plan = Object.assign(p, { start: st }); playing = true; phase = "song"; ui(); setStatus("");
   timer = setTimeout(() => { if (my === run) start(i, "after", 0); }, Math.max(0, (st + p.end - ctx.currentTime) * 1000) + 30);
   if (through && i + 1 < SONGS.length) load(songFile(i + 1, mix), SONGS[i + 1].dur).catch(() => {});
@@ -823,17 +845,18 @@ function ui() {
 function renderAct() {
   SONGS = ACTS[act].songs;
   document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.act === act)));
-  $("actTitle").textContent = ACTS[act].title;
   const tot = SONGS.reduce((a, s) => a + s.dur, 0);
-  $("actMeta").innerHTML = "";
-  [SONGS.length + " songs", "about " + Math.round(tot / 60) + " minutes", "Each song starts with its count-in"].forEach(t => { const s = document.createElement("span"); s.textContent = t; $("actMeta").append(s); });
+  $("actMeta").textContent = "Running order · " + ACTS[act].title + " · " + SONGS.length + " songs · about " + Math.round(tot / 60) + " min";
   cur = 0; plan = null; dlg = null; OPEN = null; renderViewSel(); renderReview(); renderSongs(); renderNow(); ui();
 }
 let lineEls = [], lastLine = -2, lyrMode = "lyrics";
 function renderNow() {
   const s = SONGS[cur];
-  $("npScene").textContent = s.scene + " · " + s.singer;
+  $("npNum").textContent = s.n + " / " + SONGS.length;
   $("npTitle").textContent = s.title;
+  const nd = s.dlg.before.length + s.dlg.during.length + s.dlg.after.length;
+  $("npInfo").textContent = [s.scene, s.singer, s.meter + "/4", Math.round(s.bpm) + " BPM", fmtT(s.dur)].concat(nd ? [nd + " dialogue lines"] : []).join(" · ");
+  renderPicks();
   document.querySelectorAll(".song").forEach((el, i) => el.classList.toggle("cur", i === cur));
   if (lyrMode === "browse") showDialogueBrowse(); else showLyrics();
   const p = makePlan(cur), z = $("soloZone");
@@ -909,7 +932,7 @@ function showDialogueBrowse() {
     box.append(mk("div", "sub-h", h));
     xs.forEach((x, j) => {
       const at = p === "during" && dlgAud(cur).duringAt;
-      const go = () => { if (!dialogueOn) $("dlgToggle").click(); at ? start(cur, "song", Math.max(0, at[j] - 2)) : p === "after" ? start(cur, "after", j) : start(cur, "before", p === "before" ? j : nb + 1 + j); };
+      const go = () => { if (!dialogueOn) setMode(solosOn ? "both" : "dlg"); at ? start(cur, "song", Math.max(0, at[j] - 2)) : p === "after" ? start(cur, "after", j) : start(cur, "before", p === "before" ? j : nb + 1 + j); };
       box.append(dlgLineEl(cur, p, j, go));
       if (OPEN === ckey(act, s.n, p, j)) box.append(drawer(act, s.n, p, j));
     });
@@ -976,18 +999,27 @@ function renderSongs() {
     const name = document.createElement("button"); name.className = "name"; name.textContent = s.title; name.onclick = () => start(i, "before", 0);
     const nd = (s.dlg.before.length + s.dlg.during.length + s.dlg.after.length);
     const sub = document.createElement("span"); sub.className = "sub"; sub.textContent = s.singer + " · " + s.meter + "/4 · " + Math.round(s.bpm) + " BPM · " + fmtT(s.dur) + (nd ? " · " + nd + " dialogue lines" : "");
-    const picksEl = document.createElement("div"); picksEl.className = "picks";
-    [["vocal", "Vocal", "Guide vocal", "No vocal takes"], ["solo", "Solo after song", "None", "No solos yet"]].forEach(([kind, lab, none, empty]) => {
-      const takes = takesFor(i, kind), box2 = document.createElement("label"); box2.className = "pick";
-      const l = document.createElement("span"); l.textContent = lab;
-      const sel = document.createElement("select");
-      const o0 = document.createElement("option"); o0.value = ""; o0.textContent = takes.length ? none : empty; sel.append(o0);
-      takes.forEach(t => { const o = document.createElement("option"); o.value = t.id; o.textContent = takeLabel(t); sel.append(o); });
-      sel.value = picks[kind][key(act, s.n)] || ""; sel.disabled = !takes.length;
-      sel.onchange = () => { picks[kind][key(act, s.n)] = sel.value; if (i === cur) { const was = playing && phase === "song", p = posNow(); renderNow(); if (was && p < s.dur) start(i, "song", p); } };
-      box2.append(l, sel); picksEl.append(box2);
-    });
+    const picksEl = document.createElement("div"); picksEl.className = "picks"; picksEl.append(...pickEls(i));
     row.append(num, name, sub, picksEl); box.append(row);
+  });
+  renderPicks();
+}
+function renderPicks() { $("npPicks").replaceChildren(...pickEls(cur)); }
+// the vocal-take and solo selects for one song
+function pickEls(i) {
+  const s = SONGS[i];
+  return [["vocal", "Vocal", "Guide vocal", "No vocal takes"], ["solo", "Solo", "None", "No solos yet"]].map(([kind, lab, none, empty]) => {
+    const takes = takesFor(i, kind), box2 = document.createElement("label"); box2.className = "pick";
+    const l = document.createElement("span"); l.textContent = lab;
+    const sel = document.createElement("select");
+    const o0 = document.createElement("option"); o0.value = ""; o0.textContent = takes.length ? none : empty; sel.append(o0);
+    takes.forEach(t => { const o = document.createElement("option"); o.value = t.id; o.textContent = takeLabel(t); sel.append(o); });
+    sel.value = picks[kind][key(act, s.n)] || ""; sel.disabled = !takes.length;
+    sel.onchange = () => {
+      picks[kind][key(act, s.n)] = sel.value; renderSongs();
+      if (i === cur) { const was = playing && phase === "song", p = posNow(); renderNow(); if (was && p < s.dur) start(i, "song", p); }
+    };
+    box2.append(l, sel); return box2;
   });
 }
 
@@ -998,8 +1030,14 @@ $("next").onclick = () => { if (cur < SONGS.length - 1) { const was = playing; s
 $("skip").onclick = () => { if (dlg) { const w = dlg.which, i = dlg.i; stopEverything(); dlg = null; w === "before" ? start(i, "song", 0) : advance(run); } };
 $("loop").onclick = () => { if (loopMode) { stopEverything(); ui(); return; } playLoop(); };
 $("through").onclick = () => { through = !through; $("through").setAttribute("aria-pressed", String(through)); setStatus(); };
-$("dlgToggle").setAttribute("aria-pressed", String(dialogueOn));
-$("dlgToggle").onclick = () => { dialogueOn = !dialogueOn; store.set("mp_dlg", dialogueOn ? "1" : "0"); $("dlgToggle").setAttribute("aria-pressed", String(dialogueOn)); };
+setMode(playMode);
+$("mode").onchange = () => {
+  setMode($("mode").value); renderNow();
+  if (playing && phase === "song" && plan) start(cur, "song", posNow());
+};
+function showRunningOrder(on) { $("roPanel").hidden = !on; $("roToggle").setAttribute("aria-expanded", String(on)); $("roToggle").textContent = on ? "Hide running order" : "Show running order"; }
+$("roToggle").onclick = () => showRunningOrder($("roPanel").hidden);
+$("roClose").onclick = () => showRunningOrder(false);
 document.querySelectorAll(".seg button[data-mix]").forEach(b => b.onclick = () => {
   mix = b.dataset.mix; document.querySelectorAll(".seg button[data-mix]").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
   if (playing && phase === "song") start(cur, "song", posNow());
