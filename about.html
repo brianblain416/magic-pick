@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>About Magic Pick</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bowlby+One+SC&family=Karla:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="pages.css">
+</head>
+<body>
+<main class="wrap">
+  <a class="back" href="./">← Magic Pick Player</a>
+  <div class="eyebrow">About this musical</div>
+  <h1>The Story of the Magic Pick</h1>
+  <p class="draft">DRAFT for Brian to edit. Highlighted notes mark facts the project files don't give.</p>
+
+  <p class="lede">Robbie is a gifted guitar player wasting his nights in a Toronto cover band. Then a stranger hands him a guitar pick that makes him sound like a star. The catch: whatever it gives his playing, it takes out of him.</p>
+
+  <p>Magic Pick is a rock musical in two acts: twenty-one songs plus exit music. It runs from a backstage nap at the Regal through fame, pills, a marriage coming apart, and a long way home. It's about the difference between sounding impressive and sounding like yourself.</p>
+
+  <h2>The people</h2>
+  <ul class="cast">
+    <li><b class="Robbie">Robbie</b> · A guitar player from back home who'd rather be playing in his kitchen with friends than playing "Mustang Sally" for the millionth time. Talented, stubborn, drinking too much.</li>
+    <li><b class="Melissa">Melissa</b> · Robbie's wife and the mother of their daughter. She loves him, but as she puts it, loving him is a full-time gig.</li>
+    <li><b class="Clive">Clive</b> · An old hippie with a pick full of juju. He wants to be Robbie's "grand-brother", and he knows more about Robbie than he lets on.</li>
+    <li><b>The Band</b> · Robbie's cover band, and the company in the bigger numbers.</li>
+  </ul>
+
+  <h2>Act 1</h2>
+  <p>Backstage in Toronto, Robbie is drunk and missing Melissa. The band drags him out to play, and he sneaks in an original, "Juke Box Land". Then Melissa storms in. She has brought Clive, who shows Robbie a guitar pick that holds the energy of everyone who has ever played it. Robbie plays a few notes, the room lights up, and he decides he doesn't mind swapping a bit of his soul for being noticed.</p>
+  <p>The pick works. So do the booze and the pills, and Robbie starts to sound like someone else. Clive warns him; Melissa warns him louder. When Robbie admits he feels like a phony, Melissa tells him nobody sounds like him. By the end of the act Clive has hinted at a shared past, and Melissa needs time to think.</p>
+
+  <h2>Act 2</h2>
+  <p>Robbie and Melissa are fighting in the aisles: his future against their family. Clive calls a truce with some cosmic advice ("What goes up must come down"). Melissa remembers her mother's one warning about marrying a musician, and admits she has her own habit. The two of them hit bottom together.</p>
+  <p>Robbie hands the pick back. He's going home to country music, a Fender guitar and a Fender amp, and old Sam Hopper's band, which never made the big time and couldn't care less. There's plenty of magic in a man, or a woman, and a guitar.</p>
+
+  <h2>Songs</h2>
+  <div id="songlist"></div>
+</main>
+<script src="data.js"></script>
+<script>
+// Song list straight from the player's data, so it follows script changes.
+const box = document.getElementById("songlist");
+Object.values(ACTS).forEach(a => {
+  const h = document.createElement("h3"); h.textContent = a.title; box.append(h);
+  const ul = document.createElement("ul"); ul.className = "songs";
+  a.songs.forEach(s => {
+    const li = document.createElement("li");
+    const n = document.createElement("span"); n.className = "n"; n.textContent = s.n;
+    const t = document.createElement("span"); t.textContent = s.title;
+    const w = document.createElement("span"); w.className = "who"; w.textContent = s.singer;
+    li.append(n, t, w); ul.append(li);
+  });
+  box.append(ul);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+/* About pages: same look as the player */
+:root {
+  --bg: #e9ede9; --panel: #f6f8f5; --ink: #1b2320; --muted: #5a6762; --line: #c9d2cd;
+  --accent: #1d6a86; --spot: #f2c14e; --spot-ink: #1b2320;
+  --robbie: #1d6a86; --melissa: #b0346f; --clive: #9a6b00;
+  --display: "Bowlby One SC", "Arial Black", Impact, sans-serif;
+  --body: "Karla", "Helvetica Neue", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111714; --panel: #19211d; --ink: #e6ece8; --muted: #95a49d; --line: #2c3833;
+  --accent: #63b6d3; --spot: #f0b93f; --spot-ink: #15110a;
+  --robbie: #63b6d3; --melissa: #f07fb4; --clive: #e2b04a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #111714; --panel: #19211d; --ink: #e6ece8; --muted: #95a49d; --line: #2c3833;
+  --accent: #63b6d3; --spot: #f0b93f; --spot-ink: #15110a;
+  --robbie: #63b6d3; --melissa: #f07fb4; --clive: #e2b04a; color-scheme: dark }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 17px; line-height: 1.6; }
+.wrap { max-width: 720px; margin: 0 auto; padding: 16px 16px 64px; }
+.back { font-family: var(--mono); font-size: 13px; color: var(--muted); text-decoration: none; }
+.back:hover { color: var(--accent); }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-top: 20px; }
+h1 { font-family: var(--display); font-weight: 400; font-size: clamp(30px, 7vw, 46px); line-height: 1.02; margin: 4px 0 12px; text-wrap: balance; }
+h2 { font-family: var(--display); font-weight: 400; font-size: clamp(20px, 4.5vw, 26px); line-height: 1.1; margin: 36px 0 8px; }
+h3 { font-size: 17px; margin: 20px 0 4px; }
+p { margin: 0 0 14px; }
+.lede { font-size: 20px; line-height: 1.5; }
+a { color: var(--accent); }
+.cast { display: grid; gap: 10px; margin: 8px 0 0; padding: 0; list-style: none; }
+.cast li { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
+.cast b { font-family: var(--mono); font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: .05em; }
+.Robbie { color: var(--robbie); } .Melissa { color: var(--melissa); } .Clive { color: var(--clive); }
+.songs { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 2px; }
+.songs li { display: grid; grid-template-columns: 30px minmax(0,1fr) auto; gap: 10px; align-items: baseline; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.songs .n, .songs .who { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.todo { background: var(--spot); color: var(--spot-ink); border-radius: 6px; padding: 2px 6px; font-size: 15px; }
+.draft { font-family: var(--mono); font-size: 12px; color: var(--muted); border: 1px dashed var(--line); border-radius: 8px; padding: 8px 12px; margin: 0 0 16px; }
+blockquote { margin: 0 0 14px; padding: 4px 0 4px 14px; border-left: 3px solid var(--spot); font-style: italic; }

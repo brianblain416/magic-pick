@@ -191,6 +191,9 @@ a.btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
 .ctl .seg button { padding: 6px 9px; font-size: 14px; }
 .ctl .sep { width: 1px; align-self: stretch; background: var(--line); margin: 2px 2px; }
 [hidden] { display: none !important; }
+.foot { display: flex; flex-wrap: wrap; gap: 6px 20px; justify-content: center; padding-top: 18px; border-top: 1px solid var(--line); font-size: 14px; }
+.foot a { color: var(--muted); }
+.foot a:hover { color: var(--accent); }
 @media (max-width: 600px) {
   .wrap { padding-top: 8px; gap: 8px; }
   .line { grid-template-columns: 36px minmax(0,1fr) auto; gap: 8px; padding: 4px 6px; }
@@ -370,6 +373,7 @@ a.btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
     <div class="rv-pend" id="rvPend"></div>
     <p class="note" id="rvNote"></p>
   </dialog>
+  <footer class="foot"><a href="about.html">About this musical</a><a href="story.html">The Story of “The Story of the Magic Pick”</a></footer>
 </main>
 
 <script src="config.js"></script>
