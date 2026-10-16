@@ -46,6 +46,14 @@ button.rec { color: var(--rec); border-color: var(--rec); }
 button.rec::before { content: "●"; margin-right: 5px; }
 button.rec.on { background: var(--rec); color: var(--bg); }
 button[aria-pressed="true"].toggle { background: var(--spot); color: var(--spot-ink); border-color: var(--spot); }
+button.quiet { font-weight: 500; color: var(--muted); }
+.rechead { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.rechead .eyebrow { flex: 1 1 120px; }
+#recMenuBtn { background: var(--rec); color: #fff; border-color: var(--rec); }
+#recMenuBtn[aria-expanded="true"] { box-shadow: inset 0 0 0 2px var(--panel); }
+.recmenu { display: flex; flex-wrap: wrap; gap: 6px; }
+.recmenu button { font-size: 14px; padding: 7px 12px; }
+.recmenu button[aria-current="page"] { background: var(--rec); color: #fff; border-color: var(--rec); }
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .seg button { border: 0; border-radius: 0; font-size: 14px; padding: 8px 12px; }
 .seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
@@ -221,9 +229,7 @@ a.btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
       <button id="dlgToggle" class="toggle" aria-pressed="false" title="Play dialogue between songs">Dialogue</button>
       <button id="skip" hidden>Skip dialogue</button>
       <span class="sep" aria-hidden="true"></span>
-      <button id="recVocal" class="rec">Vocal</button>
-      <button id="recSolo" class="rec">Gtr solo</button>
-      <button id="midiToggle" class="toggle" aria-pressed="false" aria-controls="midiPanel" title="MIDI tracks for synth players">MIDI</button>
+      <button id="recToggle" class="toggle quiet" aria-pressed="false" aria-controls="recArea" title="Record a vocal or guitar part, or get the MIDI">Recording</button>
     </div>
     <div class="bar" id="bar" role="slider" tabindex="0" aria-label="Position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="soloZone" id="soloZone" hidden></span><i id="fill"></i></div>
   </section>
@@ -239,6 +245,33 @@ a.btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
     <div class="songs" id="songs"></div>
   </section>
 
+
+  <section class="panel" aria-label="Lyrics and dialogue">
+    <div class="lyrbar">
+      <div class="eyebrow" id="lyrHead">Lyrics</div>
+      <select id="viewSel" aria-label="Text version" hidden></select>
+      <div class="seg" role="group" aria-label="Show">
+        <button data-mode="lyrics" aria-pressed="true">Lyrics</button>
+        <button data-mode="dialogue" aria-pressed="false">Dialogue</button>
+      </div>
+    </div>
+    <div class="lyrics" id="lyrics"></div>
+    <p class="note" id="lyrNote"></p>
+  </section>
+
+
+  <section class="panel" id="recArea" aria-label="Recording" hidden>
+    <div class="rechead">
+      <div class="eyebrow">Recording</div>
+      <button id="recMenuBtn" aria-haspopup="true" aria-expanded="false" aria-controls="recMenu">● Record</button>
+      <div class="recmenu" id="recMenu" role="group" aria-label="What to record" hidden>
+        <button data-rec="vocal">Vocal</button>
+        <button data-rec="solo">Guitar</button>
+        <button data-rec="midi">MIDI</button>
+      </div>
+      <button id="recAreaClose" class="small">Close</button>
+    </div>
+  </section>
 
   <section class="panel" id="acctPanel" aria-label="Sign in" hidden>
     <div class="row">
@@ -311,20 +344,6 @@ a.btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
     <p class="note" id="midiNote2" aria-live="polite"></p>
     <p class="note" id="midiNote">Each file starts at the 2-bar count-in, like the Band audio, and carries the song's tempo and meter. Strings are on MIDI channels 1–6 (1st = high E), Syn1 on 7. Tap a track name to mute it. Build your sounds, then record or upload your part on Syn2 — export it from the start of the count-in so it lines up.</p>
   </section>
-
-  <section class="panel" aria-label="Lyrics and dialogue">
-    <div class="lyrbar">
-      <div class="eyebrow" id="lyrHead">Lyrics</div>
-      <select id="viewSel" aria-label="Text version" hidden></select>
-      <div class="seg" role="group" aria-label="Show">
-        <button data-mode="lyrics" aria-pressed="true">Lyrics</button>
-        <button data-mode="dialogue" aria-pressed="false">Dialogue</button>
-      </div>
-    </div>
-    <div class="lyrics" id="lyrics"></div>
-    <p class="note" id="lyrNote"></p>
-  </section>
-
 
   <dialog class="panel rvdlg" id="reviewPanel" aria-label="Script edits">
     <div class="row">
@@ -1086,14 +1105,40 @@ function openRecorder(kind) {
   if (rec.state === "recording") return;
   stopEverything(); ui();
   rec.kind = kind; $("recPanel").hidden = false; recLabels(); fillPlayers();
+  if (kind !== "synth") { setMidiShown(false); showRecArea(true); markRec(kind); }
   $("recLatency").value = store.get("mp_lat") || "0";
   $("recPrivacy").value = store.get("mp_priv") || "public";
-  document.querySelectorAll("button.rec").forEach(b => b.classList.remove("on")); if (kind !== "synth") $(kind === "vocal" ? "recVocal" : "recSolo").classList.add("on");
   listDevices(); $("recPanel").scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
-$("recVocal").onclick = () => openRecorder("vocal");
-$("recSolo").onclick = () => openRecorder("solo");
-$("recClose").onclick = () => { if (rec.state === "recording") return; $("recPanel").hidden = true; fillPlayers(); document.querySelectorAll("button.rec").forEach(b => b.classList.remove("on")); if (rec.stream) { rec.stream.getTracks().forEach(t => t.stop()); rec.stream = null; } };
+function closeRecorder() {
+  if (rec.state === "recording") return false;
+  if (!$("recPanel").hidden) { $("recPanel").hidden = true; fillPlayers(); }
+  if (rec.stream) { rec.stream.getTracks().forEach(t => t.stop()); rec.stream = null; }
+  if (rec.kind !== "synth") markRec($("midiPanel").hidden ? null : "midi");
+  return true;
+}
+$("recClose").onclick = closeRecorder;
+
+// Recording: one quiet button in the transport opens the Recording panel; its red Record
+// button offers Vocal, Guitar and MIDI, each opening its own page below the lyrics.
+function markRec(which) {
+  document.querySelectorAll("#recMenu button").forEach(b => { if (b.dataset.rec === which) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
+}
+function showRecMenu(on) { $("recMenu").hidden = !on; $("recMenuBtn").setAttribute("aria-expanded", String(on)); }
+function showRecArea(on) {
+  if (!on && !closeRecorder()) return;
+  const was = !$("recArea").hidden;
+  $("recArea").hidden = !on; $("recToggle").setAttribute("aria-pressed", String(on));
+  if (on) { if (!was) { showRecMenu(false); $("recArea").scrollIntoView({ behavior: "smooth", block: "nearest" }); } }
+  else { setMidiShown(false); showRecMenu(false); }
+}
+$("recToggle").onclick = () => showRecArea($("recArea").hidden);
+$("recAreaClose").onclick = () => showRecArea(false);
+$("recMenuBtn").onclick = () => showRecMenu($("recMenu").hidden);
+document.querySelectorAll("#recMenu button").forEach(b => b.onclick = () => {
+  if (b.dataset.rec === "midi") { if (!closeRecorder()) return; setMidiShown(true, true); }
+  else openRecorder(b.dataset.rec);
+});
 $("recLatency").onchange = () => store.set("mp_lat", $("recLatency").value);
 $("recPrivacy").onchange = () => store.set("mp_priv", $("recPrivacy").value);
 $("recChannel").onchange = () => store.set("mp_ch_" + rec.kind, $("recChannel").value);
@@ -1450,12 +1495,13 @@ $("synthFile").onchange = async () => {
 };
 $("midiPlay").onclick = midiPlay;
 function setMidiShown(on, scroll) {
-  $("midiPanel").hidden = !on; $("midiToggle").setAttribute("aria-pressed", String(on)); store.set("mp_midi", on ? "1" : "0");
+  $("midiPanel").hidden = !on; store.set("mp_midi", on ? "1" : "0");
+  if (on) { $("recArea").hidden = false; $("recToggle").setAttribute("aria-pressed", "true"); markRec("midi"); }
+  else if (rec.kind !== "synth" || $("recPanel").hidden) markRec($("recPanel").hidden ? null : rec.kind);
   if (on) { midiRendered = ""; midiRender(); if (scroll) $("midiPanel").scrollIntoView({ behavior: "smooth", block: "nearest" }); }
   else if (M.playing) midiStop(true);
 }
-$("midiToggle").onclick = () => setMidiShown($("midiPanel").hidden, true);
-if (store.get("mp_midi") === "1") { $("midiPanel").hidden = false; $("midiToggle").setAttribute("aria-pressed", "true"); }
+if (store.get("mp_midi") === "1") { $("midiPanel").hidden = false; $("recArea").hidden = false; $("recToggle").setAttribute("aria-pressed", "true"); showRecMenu(true); markRec("midi"); }
 window.addEventListener("resize", () => { clearTimeout(M.rz); M.rz = setTimeout(() => { if (M.lanesData) { MTRACKS.filter(tr => !tr.audio && !tr.take).forEach(tr => drawLane(M.lanes[tr.id], tr, M.lanesData)); drawSynth(); drawBand(); } }, 200); });
 
 // ---------------- start ----------------
