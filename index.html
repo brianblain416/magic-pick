@@ -106,6 +106,7 @@ button.quiet { font-weight: 500; color: var(--muted); }
 .pick span { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .pick select { font-size: 13px; padding: 5px 6px; max-width: 190px; }
 .recpanel { border-color: var(--rec); }
+#gtrRow .note { flex: 1 1 260px; }
 .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px 14px; }
 label.f { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
 label.f input, label.f select { color: var(--ink); }
@@ -334,6 +335,13 @@ a.btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
         <input id="recLatency" type="number" min="0" max="500" step="1" value="0">
       </label>
     </div>
+    <div class="row" id="gtrRow" hidden>
+      <div class="seg" role="group" aria-label="What to record">
+        <button data-gm="full" aria-pressed="false">Full song</button>
+        <button data-gm="loop" aria-pressed="true">Loop only</button>
+      </div>
+      <span class="note">Every solo is two passes of the Loop: keep playing as long as you like, and the last two complete passes before Stop are kept.</span>
+    </div>
     <div class="row">
       <button id="recCalibrate">Measure latency</button>
       <span class="note" id="calNote">Uses your speakers and mic: hold still and keep the room quiet.</span>
@@ -466,7 +474,14 @@ async function refreshTakes() {
 }
 function takesFor(i, kind) { const n = SONGS[i].n; return TAKES.filter(t => String(t.act) === act && t.song === n && t.kind === kind); }
 function takeById(id) { return TAKES.find(t => t.id === id); }
-function takeLabel(t) { const d = new Date(t.created); return t.handle + " · " + d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) + (t.private ? " · private" : ""); }
+// A guitar take is either the full song (guitar from the count-in, then the solo over the Loop) or Loop passes only.
+// Takes saved before the library stored a mode: longer than the song means full song.
+function isFull(t) { const s = ACTS[String(t.act)].songs.find(x => x.n === t.song); return t.kind === "solo" && (t.mode === "full" || (!t.mode && !!s && t.dur > s.dur)); }
+function takeLabel(t) {
+  const d = new Date(t.created), s = ACTS[String(t.act)].songs.find(x => x.n === t.song);
+  const what = t.kind !== "solo" || !s ? "" : isFull(t) ? " · full song" : " · " + Math.max(1, Math.round(t.dur / s.loopDur)) + " × Loop";
+  return t.handle + what + " · " + d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) + (t.private ? " · private" : "");
+}
 const takeBufs = new Map();
 function loadTake(t) {
   if (!takeBufs.has(t.id)) {
@@ -737,7 +752,10 @@ function lineSecs(l) { if (!l.x) return 0.8; const w = (l.x[2] + " " + l.x[1]).s
 function makePlan(i) {
   const s = SONGS[i], spb = 60 / s.bpm, bar = spb * s.meter, t = solosOn ? soloTake(i) : null;
   const p = { i, dur: s.dur, spb, bar, take: t };
-  if (t) { p.countAt = s.dur + bar; p.loopAt = p.countAt + 2 * bar; p.passes = Math.max(1, Math.round(t.dur / s.loopDur)); p.end = p.loopAt + p.passes * s.loopDur; }
+  if (t) {
+    p.full = isFull(t); p.countAt = s.dur + bar; p.loopAt = p.countAt + 2 * bar;
+    p.passes = Math.max(1, Math.round((p.full ? t.dur - p.loopAt : t.dur) / s.loopDur)); p.end = p.loopAt + p.passes * s.loopDur;
+  }
   else p.end = s.dur;
   return p;
 }
@@ -785,7 +803,8 @@ async function playSong(i, pos, my) {
     if (pos < p.end) {
       const into = Math.max(0, pos - p.loopAt), at = Math.max(st + p.loopAt, t0);
       const l = src(loopB, at, into % SONGS[i].loopDur, true); l.stop(st + p.end);
-      if (into + (p.take.offset || 0) < takeB.duration) src(takeB, at, into + (p.take.offset || 0));
+      if (p.full) { if (pos + (p.take.offset || 0) < takeB.duration) src(takeB, t0, pos + (p.take.offset || 0)); }
+      else if (into + (p.take.offset || 0) < takeB.duration) src(takeB, at, into + (p.take.offset || 0));
     }
   }
   p.dl = [];
@@ -1163,7 +1182,35 @@ function recLabels() {
     ? "You'll hear the Band mix from the count-in while your synth is recorded. Plug the synth (or your computer's audio out) into the interface and use headphones so the band doesn't leak into your take."
     : rec.kind === "vocal"
     ? "You'll hear the Band mix from the top of the song while your voice is recorded. Use headphones so the band doesn't leak into your take."
-    : "You'll hear two bars of click, then the Loop repeats while you play. Press Stop when you're done. Plug your guitar into the interface's instrument input and use its direct monitoring to hear yourself.";
+    : (rec.gm === "full"
+      ? "You'll hear the song from the count-in, a bar's rest, two bars of click, then the Loop repeats for your solo until you press Stop."
+      : "You'll hear two bars of click, then the Loop repeats until you press Stop.")
+      + " Plug your guitar into the interface's instrument input and use its direct monitoring to hear yourself.";
+  gtrUI();
+}
+// guitar: Full song or Loop only
+rec.gm = store.get("mp_gm") === "full" ? "full" : "loop";
+function gtrUI() {
+  $("gtrRow").hidden = rec.kind !== "solo";
+  document.querySelectorAll("#gtrRow [data-gm]").forEach(b => { b.setAttribute("aria-pressed", String(b.dataset.gm === rec.gm)); b.disabled = rec.state === "recording"; });
+}
+document.querySelectorAll("#gtrRow [data-gm]").forEach(b => b.onclick = () => {
+  if (rec.state === "recording" || rec.gm === b.dataset.gm) return;
+  if (rec.state === "review") $("recDiscard").click();
+  rec.gm = b.dataset.gm; store.set("mp_gm", rec.gm); recLabels();
+});
+// Every solo is a double: keep the last two complete Loop passes before Stop
+// (for a full-song take, the song and count-in, then those two passes).
+const SOLO_PASSES = 2;
+async function keepLastPasses(samples, sr, lat, loopAt, L) {
+  const passes = Math.floor((samples.length / sr - lat - loopAt) / L);
+  if (passes < SOLO_PASSES) return null;
+  const head = Math.round((loopAt + lat) * sr), a = Math.round((loopAt + (passes - SOLO_PASSES) * L + lat) * sr);
+  const b = Math.min(samples.length, Math.round((loopAt + passes * L + lat + 0.5) * sr));
+  const out = new Float32Array(head + b - a); out.set(samples.subarray(0, head)); out.set(samples.subarray(a, b), head);
+  if (a > head) { const f = Math.round(0.01 * sr); for (let j = 0; j < f && head + j < out.length; j++) out[head + j] = samples[a + j] * (j / f) + (samples[head + j] || 0) * (1 - j / f); }
+  const blob = await toWav24k(out, sr);
+  return { blob, buf: await ctx.decodeAudioData(await blob.arrayBuffer()), dur: loopAt + SOLO_PASSES * L, offset: lat, passes };
 }
 function openRecorder(kind) {
   if (rec.state === "recording") return;
@@ -1216,16 +1263,29 @@ $("recGo").onclick = async () => {
   const i = cur, s = SONGS[i], my = ++run; stopAll();
   rec.i = i; rec.act = act; rec.chunks = []; rec.take = null;
   let bed;
-  try { bed = rec.kind !== "solo" ? await load(songFile(i, "band"), s.dur) : await load(loopFile(i), s.loopDur); }
-  catch (e) { $("recNote").textContent = "Couldn't load the backing track. Check your connection."; return; }
+  const full = rec.kind === "solo" && rec.gm === "full"; let song = null; rec.full = full;
+  try {
+    bed = rec.kind !== "solo" ? await load(songFile(i, "band"), s.dur) : await load(loopFile(i), s.loopDur);
+    if (full) song = await load(songFile(i, mix), s.dur);
+  } catch (e) { $("recNote").textContent = "Couldn't load the backing track. Check your connection."; return; }
   const spb = 60 / s.bpm, bar = spb * s.meter, t0 = ctx.currentTime + 0.4;
   rec.cap = capture(c => { rec.chunks.push(c); meterFrom(rec.chunks); });
   if (rec.kind !== "solo") { rec.t0 = t0; src(bed, t0, 0); rec.autoStop = setTimeout(stopRecording, (s.dur + 0.6) * 1000); }
-  else { for (let k = 0; k < 2 * s.meter; k++) src(makeClick(k % s.meter === 0), t0 + k * spb, 0); rec.t0 = t0 + 2 * bar; src(bed, rec.t0, 0, true); }
+  else if (full) {   // the song, a bar's rest, two bars of click, then the Loop until Stop (as it plays back)
+    rec.t0 = t0; src(song, t0, 0);
+    const c0 = t0 + s.dur + bar; for (let k = 0; k < 2 * s.meter; k++) src(makeClick(k % s.meter === 0), c0 + k * spb, 0);
+    rec.loopT = c0 + 2 * bar; src(bed, rec.loopT, 0, true);
+  }
+  else { for (let k = 0; k < 2 * s.meter; k++) src(makeClick(k % s.meter === 0), t0 + k * spb, 0); rec.t0 = t0 + 2 * bar; rec.loopT = rec.t0; src(bed, rec.t0, 0, true); }
+  gtrUI();
   rec.state = "recording"; $("recGo").textContent = "Stop"; $("recGo").classList.add("on");
   ["recListen", "recSave", "recDiscard", "recCalibrate"].forEach(id => $(id).disabled = true);
   $("stage").textContent = "Recording"; $("stage").className = "stage rec";
-  rec.ticker = setInterval(() => { const t = Math.max(0, ctx.currentTime - rec.t0); $("pos").innerHTML = "<b>Recording</b> · " + fmtT(t) + (rec.kind !== "solo" ? " / " + fmtT(s.dur) : ""); }, 200);
+  rec.ticker = setInterval(() => {
+    const t = Math.max(0, ctx.currentTime - rec.t0), lt = ctx.currentTime - rec.loopT;
+    const what = rec.kind !== "solo" ? " / " + fmtT(s.dur) : lt >= 0 ? " · Loop pass " + (Math.floor(lt / s.loopDur) + 1) : full && t < s.dur ? " · song" : " · count-in";
+    $("pos").innerHTML = "<b>Recording</b> · " + fmtT(t) + what;
+  }, 200);
 };
 function stopRecording() {
   if (rec.state !== "recording") return;
@@ -1236,22 +1296,37 @@ function stopRecording() {
     const samples = assemble(rec.chunks, rec.t0 * sr, endT * sr);
     const dur = samples.length / sr;
     if (dur < 1) { rec.state = "idle"; resetRecUI(); $("recNote").textContent = "That take was too short. Try again."; return; }
-    const blob = await toWav24k(samples, sr);
-    const buf = await ctx.decodeAudioData(await blob.arrayBuffer());
-    rec.take = { blob, buf, dur: Math.max(0, dur - lat), offset: lat };
-    rec.state = "review"; resetRecUI();
+    if (rec.kind === "solo") {
+      const s = SONGS[rec.i], loopAt = rec.full ? s.dur + 3 * 60 / s.bpm * s.meter : 0;
+      const tk = await keepLastPasses(samples, sr, lat, loopAt, s.loopDur);
+      if (!tk) { rec.state = "idle"; resetRecUI(); gtrUI(); $("recNote").textContent = "Play at least two complete passes of the Loop before pressing Stop."; return; }
+      rec.take = tk; rec.state = "review";
+      $("recNote").textContent = "You played " + tk.passes + " complete passes of the Loop; your solo is the last two. Listen back, then save it or discard it.";
+    } else {
+      const blob = await toWav24k(samples, sr);
+      const buf = await ctx.decodeAudioData(await blob.arrayBuffer());
+      rec.take = { blob, buf, dur: Math.max(0, dur - lat), offset: lat };
+      rec.state = "review";
+      $("recNote").textContent = "Recorded " + fmtT(dur) + ". Listen back, then save it or discard it.";
+    }
+    resetRecUI(); gtrUI();
     ["recListen", "recSave", "recDiscard"].forEach(id => $(id).disabled = false);
-    $("recNote").textContent = "Recorded " + fmtT(dur) + ". Listen back, then save it or discard it.";
     $("recMeter").style.width = "0%";
   }, 300);
 }
 function resetRecUI() { $("recGo").textContent = "Record"; $("recGo").classList.remove("on"); $("recCalibrate").disabled = false; $("stage").textContent = "Ready"; $("stage").className = "stage"; }
-$("recDiscard").onclick = () => { stopAll(); rec.take = null; rec.state = "idle"; ["recListen", "recSave", "recDiscard"].forEach(id => $(id).disabled = true); $("recNote").textContent = "Take discarded."; };
+$("recDiscard").onclick = () => { stopAll(); rec.take = null; rec.state = "idle"; gtrUI(); ["recListen", "recSave", "recDiscard"].forEach(id => $(id).disabled = true); $("recNote").textContent = "Take discarded."; };
 $("recListen").onclick = async () => {
   if (!rec.take) return; stopAll(); const s = SONGS[rec.i];
   if ($("recListen").textContent === "Stop") { $("recListen").textContent = "Listen back"; return; }
   const t0 = ctx.currentTime + 0.1;
   if (rec.kind !== "solo") { src(await load(songFile(rec.i, "band"), s.dur), t0, 0); }
+  else if (rec.full) {
+    const bar = 60 / s.bpm * s.meter, loopAt = s.dur + 3 * bar, passes = Math.max(1, Math.round((rec.take.dur - loopAt) / s.loopDur));
+    src(await load(songFile(rec.i, mix), s.dur), t0, 0);
+    for (let k = 0; k < 2 * s.meter; k++) src(makeClick(k % s.meter === 0), t0 + s.dur + bar + k * 60 / s.bpm, 0);
+    const l = src(await load(loopFile(rec.i), s.loopDur), t0 + loopAt, 0, true); l.stop(t0 + loopAt + passes * s.loopDur);
+  }
   else { const l = src(await load(loopFile(rec.i), s.loopDur), t0, 0, true); l.stop(t0 + Math.max(1, Math.round(rec.take.dur / s.loopDur)) * s.loopDur); }
   const n = src(rec.take.buf, t0, rec.take.offset);
   $("recListen").textContent = "Stop"; n.onended = () => { $("recListen").textContent = "Listen back"; };
@@ -1261,7 +1336,7 @@ $("recSave").onclick = async () => {
   const s = ACTS[rec.act].songs[rec.i];
   if (!BACKEND_URL) {
     const a = document.createElement("a"); a.href = URL.createObjectURL(rec.take.blob);
-    a.download = "MagicPick_A" + rec.act + "-" + s.n + "_" + rec.kind + "_" + new Date().toISOString().slice(0, 16).replace(/[:T]/g, "") + ".wav"; a.click();
+    a.download = "MagicPick_A" + rec.act + "-" + s.n + "_" + rec.kind + (rec.kind === "solo" ? (rec.full ? "-full" : "-loop") : "") + "_" + new Date().toISOString().slice(0, 16).replace(/[:T]/g, "") + ".wav"; a.click();
     $("recNote").textContent = "The takes library isn't connected yet, so the take was downloaded to this computer.";
     return;
   }
@@ -1270,7 +1345,7 @@ $("recSave").onclick = async () => {
   $("recSave").disabled = true; $("recNote").textContent = "Saving to the takes library…";
   try {
     const b64 = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(",")[1]); fr.onerror = rej; fr.readAsDataURL(rec.take.blob); });
-    const j = await api("upload", { act: +rec.act, song: s.n, kind: rec.kind, private: $("recPrivacy").value === "private", dur: rec.take.dur, offset: rec.take.offset, mime: "audio/wav", data: b64 });
+    const j = await api("upload", { act: +rec.act, song: s.n, kind: rec.kind, mode: rec.kind === "solo" ? (rec.full ? "full" : "loop") : "", private: $("recPrivacy").value === "private", dur: rec.take.dur, offset: rec.take.offset, mime: "audio/wav", data: b64 });
     takeBufs.set(j.id, Promise.resolve(rec.take.buf));
     rec.take = null; rec.state = "idle"; ["recListen", "recSave", "recDiscard"].forEach(id => $(id).disabled = true);
     await refreshTakes();

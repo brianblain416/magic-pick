@@ -28,7 +28,7 @@
 
 const SITE_URL = 'https://brianblain416.github.io/magic-pick/';
 const FOLDER_NAME = 'Magic Pick Takes';
-const TAKE_COLS = ['id', 'handle', 'act', 'song', 'kind', 'private', 'created', 'dur', 'offset', 'fileId', 'mime', 'removed', 'owner'];
+const TAKE_COLS = ['id', 'handle', 'act', 'song', 'kind', 'private', 'created', 'dur', 'offset', 'fileId', 'mime', 'removed', 'owner', 'mode'];
 const DEV_COLS = ['device', 'email', 'token', 'expires', 'verified', 'created'];
 const MAX_BYTES = 30 * 1024 * 1024;
 const LINK_MINUTES = 60;
@@ -183,7 +183,8 @@ function upload_(q, me) {
   try {
     const file = actFolder_(q.act).createFile(Utilities.newBlob(bytes, q.mime || 'audio/wav', name));
     sheet_('Takes', TAKE_COLS).appendRow([id, me.name, Number(q.act), String(q.song), q.kind, !!q.private, created,
-      Number(q.dur) || 0, Number(q.offset) || 0, file.getId(), q.mime || 'audio/wav', false, me.email]);
+      Number(q.dur) || 0, Number(q.offset) || 0, file.getId(), q.mime || 'audio/wav', false, me.email,
+      ['full', 'loop'].indexOf(q.mode) >= 0 ? q.mode : '']);
   } finally { lock.releaseLock(); }
   return { ok: true, id, handle: me.name };
 }
@@ -300,7 +301,7 @@ function keyHash_(key) {
 function esc_(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 function publicTake_(t) {
   return { id: t.id, handle: t.handle, act: Number(t.act), song: String(t.song).padStart(2, '0'), kind: t.kind,
-    private: !!t.private, created: t.created, dur: Number(t.dur), offset: Number(t.offset) };
+    private: !!t.private, created: t.created, dur: Number(t.dur), offset: Number(t.offset), mode: String(t.mode || '') };
 }
 function toObj_(row, cols) { const o = {}; cols.forEach((c, i) => o[c] = row[i]); if ('song' in o) o.song = String(o.song).padStart(2, '0'); return o; }
 function rows_(name, cols) {
