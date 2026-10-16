@@ -269,7 +269,7 @@ a.btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
       <div class="eyebrow" style="flex:1" id="actMeta"></div>
       <button id="roClose" class="small">Hide</button>
     </div>
-    <p class="note">Tap a song to play it. Pick a vocal take to sing along with a cast member instead of the guide vocal, or a guitar solo to play after the song (with <b>Play with solos</b>): a bar's pause, two bars of click, then the Loop repeats under the solo.</p>
+    <p class="note">Tap a song to play it. Pick a vocal take to sing along with a cast member instead of the guide vocal, or a guitar solo to play after the song (with <b>Play with solos</b>): the Loop follows the song straight on and plays twice under the solo.</p>
     <div class="songs" id="songs"></div>
   </section>
 
@@ -756,7 +756,7 @@ function makePlan(i) {
   const s = SONGS[i], spb = 60 / s.bpm, bar = spb * s.meter, t = solosOn ? soloTake(i) : null;
   const p = { i, dur: s.dur, spb, bar, take: t };
   if (t) {
-    p.full = isFull(t); p.countAt = s.dur + bar; p.loopAt = p.countAt + 2 * bar;
+    p.full = isFull(t); p.countAt = p.loopAt = s.dur;   // the songs are cut to roll straight into the Loop
     p.passes = Math.max(1, Math.round((p.full ? t.dur - p.loopAt : t.dur) / s.loopDur)); p.end = p.loopAt + p.passes * s.loopDur;
   }
   else p.end = s.dur;
@@ -802,7 +802,6 @@ async function playSong(i, pos, my) {
   if (pos < p.dur) src(song, t0, pos);
   if (vocB && pos < p.dur) src(vocB, t0, pos + (vt.offset || 0));
   if (p.take) {
-    for (let k = 0; k < 2 * SONGS[i].meter; k++) { const at = st + p.countAt + k * p.spb; if (at >= t0 - 0.001) src(makeClick(k % SONGS[i].meter === 0), at, 0); }
     if (pos < p.end) {
       const into = Math.max(0, pos - p.loopAt), at = Math.max(st + p.loopAt, t0);
       const l = src(loopB, at, into % SONGS[i].loopDur, true); l.stop(st + p.end);
@@ -1007,8 +1006,7 @@ function tick() {
       showLine(beats);
       const dl = (p.dl || []).find(d => pos >= d.at && pos < d.end), dt = dl ? dl.txt : "";
       if (dt !== p.dlShown) { p.dlShown = dt; setStatus(dt); }
-    } else if (p.take && pos < p.countAt) { st.textContent = "Pause"; st.className = "stage"; $("pos").innerHTML = "<b>Solo coming up</b> · " + fmtT(pos) + " / " + fmtT(p.end); }
-    else if (p.take && pos < p.loopAt) { const k = Math.floor((pos - p.countAt) / p.spb) + 1; st.textContent = "Count-in"; st.className = "stage count"; $("pos").innerHTML = "<b>Count-in · " + k + "</b> · " + fmtT(pos) + " / " + fmtT(p.end); }
+    }
     else if (p.take) { const pass = Math.min(p.passes, Math.floor((pos - p.loopAt) / s.loopDur) + 1); st.textContent = "Solo · " + p.take.handle; st.className = "stage solo"; $("pos").innerHTML = "<b>Solo · pass " + pass + " of " + p.passes + "</b> · " + fmtT(pos) + " / " + fmtT(p.end); }
   }
   requestAnimationFrame(tick);
@@ -1182,7 +1180,7 @@ function recLabels() {
     ? "Syn2 for " + s.title + ": the Band mix plays from the count-in. Use headphones."
     : rec.kind === "vocal"
     ? "The Band mix plays from the count-in. Use headphones."
-    : (rec.gm === "full" ? "The song, a bar's rest, two bars of click, then the Loop until Stop." : "Two bars of click, then the Loop until Stop.")
+    : (rec.gm === "full" ? "The song, then the Loop straight on until Stop." : "Two bars of click, then the Loop until Stop.")
       + " Your solo is the last two complete passes. Guitar into the instrument input, with direct monitoring.";
   gtrUI();
 }
@@ -1271,10 +1269,9 @@ $("recGo").onclick = async () => {
   const spb = 60 / s.bpm, bar = spb * s.meter, t0 = ctx.currentTime + 0.4;
   rec.cap = capture(c => { rec.chunks.push(c); meterFrom(rec.chunks); });
   if (rec.kind !== "solo") { rec.t0 = t0; src(bed, t0, 0); rec.autoStop = setTimeout(stopRecording, (s.dur + 0.6) * 1000); }
-  else if (full) {   // the song, a bar's rest, two bars of click, then the Loop until Stop (as it plays back)
+  else if (full) {   // the song, then the Loop straight on until Stop (as it plays back)
     rec.t0 = t0; src(song, t0, 0);
-    const c0 = t0 + s.dur + bar; for (let k = 0; k < 2 * s.meter; k++) src(makeClick(k % s.meter === 0), c0 + k * spb, 0);
-    rec.loopT = c0 + 2 * bar; src(bed, rec.loopT, 0, true);
+    rec.loopT = t0 + s.dur; src(bed, rec.loopT, 0, true);
   }
   else { for (let k = 0; k < 2 * s.meter; k++) src(makeClick(k % s.meter === 0), t0 + k * spb, 0); rec.t0 = t0 + 2 * bar; rec.loopT = rec.t0; src(bed, rec.t0, 0, true); }
   gtrUI();
@@ -1297,7 +1294,7 @@ function stopRecording() {
     const dur = samples.length / sr;
     if (dur < 1) { rec.state = "idle"; resetRecUI(); $("recNote").textContent = "That take was too short. Try again."; return; }
     if (rec.kind === "solo") {
-      const s = SONGS[rec.i], loopAt = rec.full ? s.dur + 3 * 60 / s.bpm * s.meter : 0;
+      const s = SONGS[rec.i], loopAt = rec.full ? s.dur : 0;
       const tk = await keepLastPasses(samples, sr, lat, loopAt, s.loopDur);
       if (!tk) { rec.state = "idle"; resetRecUI(); gtrUI(); $("recNote").textContent = "Play at least two complete passes of the Loop before pressing Stop."; return; }
       rec.take = tk; rec.state = "review";
@@ -1322,9 +1319,8 @@ $("recListen").onclick = async () => {
   const t0 = ctx.currentTime + 0.1;
   if (rec.kind !== "solo") { src(await load(songFile(rec.i, "band"), s.dur), t0, 0); }
   else if (rec.full) {
-    const bar = 60 / s.bpm * s.meter, loopAt = s.dur + 3 * bar, passes = Math.max(1, Math.round((rec.take.dur - loopAt) / s.loopDur));
+    const loopAt = s.dur, passes = Math.max(1, Math.round((rec.take.dur - loopAt) / s.loopDur));
     src(await load(songFile(rec.i, mix), s.dur), t0, 0);
-    for (let k = 0; k < 2 * s.meter; k++) src(makeClick(k % s.meter === 0), t0 + s.dur + bar + k * 60 / s.bpm, 0);
     const l = src(await load(loopFile(rec.i), s.loopDur), t0 + loopAt, 0, true); l.stop(t0 + loopAt + passes * s.loopDur);
   }
   else { const l = src(await load(loopFile(rec.i), s.loopDur), t0, 0, true); l.stop(t0 + Math.max(1, Math.round(rec.take.dur / s.loopDur)) * s.loopDur); }
