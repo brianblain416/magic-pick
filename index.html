@@ -35,7 +35,7 @@ body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--b
 .npinfo .meta { flex: 1 1 220px; font-size: 12px; }
 .npinfo .picks { display: flex; flex-wrap: wrap; gap: 8px; }
 .npinfo .pick { display: flex; align-items: center; gap: 6px; }
-#mode { font-size: 14px; padding: 6px 8px; font-weight: 700; }
+#what button { font-weight: 700; }
 #status { font-size: 13px; min-height: 1.4em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 h1 { font-family: var(--display); font-weight: 400; font-size: clamp(30px, 7vw, 46px); line-height: 1.02; margin: 4px 0; }
@@ -246,20 +246,19 @@ a.btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
       <button id="prev" aria-label="Previous song">◀︎</button>
       <button id="play" class="primary">Play</button>
       <button id="next" aria-label="Next song">▶︎</button>
-      <select id="mode" aria-label="What to play">
-        <option value="dlg">Play with dialogue</option>
-        <option value="solo">Play with solos</option>
-        <option value="both">Play with dialogue and solos</option>
-        <option value="songs">Play songs only</option>
-      </select>
+      <div class="seg" id="what" role="group" aria-label="What to play">
+        <button data-what="song" aria-pressed="true">Full song</button>
+        <button data-what="songloop" aria-pressed="false">Song + Loop</button>
+        <button data-what="loop" aria-pressed="false">Loop only</button>
+      </div>
+      <button id="dlgToggle" class="toggle" aria-pressed="true" title="Play the dialogue between and during songs">Dialogue</button>
       <button id="skip" hidden>Skip dialogue</button>
       <span class="sep" aria-hidden="true"></span>
       <div class="seg" role="group" aria-label="Mix">
         <button data-mix="band" aria-pressed="false">Band</button>
         <button data-mix="bandvox" aria-pressed="true">Band+Vox</button>
       </div>
-      <button id="through" class="toggle" aria-pressed="true" title="Play through the act">Through act</button>
-      <button id="loop" class="toggle" aria-pressed="false">Loop</button>
+      <button id="through" class="toggle" aria-pressed="true" title="Play every song in the act">Play All</button>
     </div>
     <div class="bar" id="bar" role="slider" tabindex="0" aria-label="Position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="soloZone" id="soloZone" hidden></span><i id="fill"></i></div>
     <p class="note" id="status">Press Play. Songs load as you reach them.</p>
@@ -270,7 +269,7 @@ a.btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
       <div class="eyebrow" style="flex:1" id="actMeta"></div>
       <button id="roClose" class="small">Hide</button>
     </div>
-    <p class="note">Tap a song to play it. Pick a vocal take to sing along with a cast member instead of the guide vocal, or a guitar solo to play after the song (with <b>Play with solos</b>): the Loop follows the song straight on and plays twice under the solo.</p>
+    <p class="note">Tap a song to play it. Pick a vocal take to sing along with a cast member instead of the guide vocal, or a guitar take to hear with <b>Song + Loop</b>: the Loop follows the song straight on.</p>
     <div class="songs" id="songs"></div>
   </section>
 
@@ -283,7 +282,8 @@ a.btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
         <button data-rec="midi">MIDI</button>
       </div>
       <div class="seg" id="gtrRow" role="group" aria-label="Guitar take" hidden>
-        <button data-gm="full" aria-pressed="false">Full song</button>
+        <button data-gm="song" aria-pressed="false">Full song</button>
+        <button data-gm="songloop" aria-pressed="false">Song + Loop</button>
         <button data-gm="loop" aria-pressed="true">Loop only</button>
       </div>
       <select id="recLimit" aria-label="When to stop" hidden>
@@ -484,12 +484,19 @@ async function refreshTakes() {
 }
 function takesFor(i, kind) { const n = SONGS[i].n; return TAKES.filter(t => String(t.act) === act && t.song === n && t.kind === kind); }
 function takeById(id) { return TAKES.find(t => t.id === id); }
-// A guitar take is either the full song (guitar from the count-in, then the solo over the Loop) or Loop passes only.
-// Takes saved before the library stored a mode: longer than the song means full song.
-function isFull(t) { const s = ACTS[String(t.act)].songs.find(x => x.n === t.song); return t.kind === "solo" && (t.mode === "full" || (!t.mode && !!s && t.dur > s.dur)); }
+// A guitar take is the song (guitar over the song only), the song and then the Loop, or Loop passes only.
+// The library stores "full" for both song kinds (they differ by length) and "loop"; older takes have no
+// mode: longer than the song means song + Loop.
+function takeKind(t) {
+  const s = ACTS[String(t.act)].songs.find(x => x.n === t.song);
+  if (t.kind !== "solo" || !s) return null;
+  if (t.mode === "loop" || (!t.mode && t.dur <= s.dur)) return "loop";
+  return t.dur <= s.dur + 1.5 ? "song" : "songloop";
+}
+function isFull(t) { const k = takeKind(t); return k === "song" || k === "songloop"; }
 function takeLabel(t) {
-  const d = new Date(t.created), s = ACTS[String(t.act)].songs.find(x => x.n === t.song);
-  const what = t.kind !== "solo" || !s ? "" : isFull(t) ? " · full song" : " · " + Math.max(1, Math.round(t.dur / s.loopDur)) + " × Loop";
+  const d = new Date(t.created), s = ACTS[String(t.act)].songs.find(x => x.n === t.song), k = takeKind(t);
+  const what = !k ? "" : k === "song" ? " · song" : k === "songloop" ? " · song + Loop" : " · " + Math.max(1, Math.round(t.dur / s.loopDur)) + " × Loop";
   return t.handle + what + " · " + d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) + (t.private ? " · private" : "");
 }
 const takeBufs = new Map();
@@ -737,15 +744,14 @@ $("acctClose").onclick = () => { acctWanted = false; fillPlayers(); };
 $("whoSign").onclick = showAcct;
 
 // ---------------- playback sequence ----------------
-// For each song: [dialogue before] -> song -> [solo] -> [dialogue after] -> next song
-// play mode: dialogue between (and inside) songs, guitar solos after songs, both, or songs only
-const MODES = ["dlg", "solo", "both", "songs"];
-let playMode = MODES.includes(store.get("mp_mode")) ? store.get("mp_mode") : "dlg";
-let cur = 0, mix = "bandvox", through = true, dialogueOn, solosOn;
-function setMode(m) {
-  playMode = m; store.set("mp_mode", m); $("mode").value = m;
-  dialogueOn = m === "dlg" || m === "both"; solosOn = m === "solo" || m === "both";
-}
+// For each song: [dialogue before] -> song -> [Loop] -> [dialogue after] -> next song
+// What to play: the song alone, the song rolling straight into its Loop, or the Loop alone; dialogue on or off.
+const WHATS = ["song", "songloop", "loop"], oldMode = store.get("mp_mode");
+let what = WHATS.includes(store.get("mp_what")) ? store.get("mp_what") : (oldMode === "solo" || oldMode === "both" ? "songloop" : "song");
+let dialogueOn = store.get("mp_dlg2") != null ? store.get("mp_dlg2") === "1" : oldMode !== "solo" && oldMode !== "songs";
+let cur = 0, mix = "bandvox", through = true;
+function setWhat(w) { what = w; store.set("mp_what", w); document.querySelectorAll("#what [data-what]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.what === w))); }
+function setDialogue(on) { dialogueOn = on; store.set("mp_dlg2", on ? "1" : "0"); $("dlgToggle").setAttribute("aria-pressed", String(on)); }
 let phase = "song", playing = false, loopMode = false, plan = null, timer = null, run = 0;
 let dlg = null; // {i, which, lines, k, until}
 let loopStart = 0;
@@ -760,18 +766,23 @@ const hasDlg = (i, which) => dlgLines(i, which).some(l => l.x);
 function lineSecs(l) { if (!l.x) return 0.8; const w = (l.x[2] + " " + l.x[1]).split(/\s+/).length; return Math.min(9, Math.max(2.4, 1.2 + w * 0.36)); }
 
 function makePlan(i) {
-  const s = SONGS[i], spb = 60 / s.bpm, bar = spb * s.meter, t = solosOn ? soloTake(i) : null;
-  const p = { i, dur: s.dur, spb, bar, take: t };
-  if (t) {
-    p.full = isFull(t); p.countAt = p.loopAt = s.dur;   // the songs are cut to roll straight into the Loop
-    p.passes = Math.max(1, Math.round((p.full ? t.dur - p.loopAt : t.dur) / s.loopDur)); p.end = p.loopAt + p.passes * s.loopDur;
-  }
-  else p.end = s.dur;
+  const s = SONGS[i], spb = 60 / s.bpm, bar = spb * s.meter, g = soloTake(i), k = g && takeKind(g);
+  // a guitar take plays where it fits: a song take in Full song, any take in Song + Loop
+  const t = what === "song" ? (k === "song" || k === "songloop" ? g : null) : what === "songloop" ? g : null;
+  const p = { i, dur: s.dur, spb, bar, take: t, kind: t ? k : null };
+  p.countAt = p.loopAt = s.dur;   // the songs are cut to roll straight into the Loop
+  p.full = !!t && (k === "song" || k === "songloop");
+  if (what === "songloop") {
+    const n = !t || k === "song" ? 0 : Math.max(1, Math.round((k === "songloop" ? t.dur - s.dur : t.dur) / s.loopDur));
+    p.loopOn = true; p.forever = !n && !through; p.passes = n || 2;   // no take and not Play All: the Loop repeats until Stop
+    p.end = s.dur + p.passes * s.loopDur;
+  } else p.end = s.dur;
   return p;
 }
-function stopEverything() { midiStop(false); run++; clearTimeout(timer); stopAll(); playing = false; loopMode = false; $("loop").setAttribute("aria-pressed", "false"); }
+function stopEverything() { midiStop(false); run++; clearTimeout(timer); stopAll(); playing = false; loopMode = false; }
 
 async function start(i, ph, pos) {
+  if (what === "loop") return playLoop(i);
   stopEverything(); audio(); const my = run;
   if (i !== cur) { cur = i; renderNow(); }
   if (ph === "before" && !(dialogueOn && hasDlg(i, "before"))) { ph = "song"; pos = 0; }
@@ -798,7 +809,7 @@ async function playSong(i, pos, my) {
   try {
     [song, loopB, takeB, vocB, durB] = await Promise.all([
       load(songFile(i, m), SONGS[i].dur),
-      p.take ? load(loopFile(i), SONGS[i].loopDur) : null,
+      p.loopOn ? load(loopFile(i), SONGS[i].loopDur) : null,
       p.take ? loadTake(p.take) : null,
       vt ? loadTake(vt) : null,
       dAt ? Promise.all(dAt.map((_, k) => load(dlgFile(i, "during", k)).catch(() => null))) : []]);
@@ -808,13 +819,12 @@ async function playSong(i, pos, my) {
   const t0 = ctx.currentTime + 0.08, st = t0 - pos;
   if (pos < p.dur) src(song, t0, pos);
   if (vocB && pos < p.dur) src(vocB, t0, pos + (vt.offset || 0));
+  const into = Math.max(0, pos - p.loopAt), at = Math.max(st + p.loopAt, t0);
+  if (p.loopOn && (p.forever || pos < p.end)) { const l = src(loopB, at, into % SONGS[i].loopDur, true); if (!p.forever) l.stop(st + p.end); }
   if (p.take) {
-    if (pos < p.end) {
-      const into = Math.max(0, pos - p.loopAt), at = Math.max(st + p.loopAt, t0);
-      const l = src(loopB, at, into % SONGS[i].loopDur, true); l.stop(st + p.end);
-      if (p.full) { if (pos + (p.take.offset || 0) < takeB.duration) src(takeB, t0, pos + (p.take.offset || 0)); }
-      else if (into + (p.take.offset || 0) < takeB.duration) src(takeB, at, into + (p.take.offset || 0));
-    }
+    const off = p.take.offset || 0;
+    if (p.full) { if (pos + off < takeB.duration) src(takeB, t0, pos + off); }
+    else if (into + off < takeB.duration) src(takeB, at, into + off);
   }
   p.dl = [];
   if (dAt) dAt.forEach((at, k) => {
@@ -822,9 +832,9 @@ async function playSong(i, pos, my) {
     if (at + b.duration > pos) src(b, st + at, Math.max(0, pos - at));
     p.dl.push({ at, end: at + b.duration - 0.3, txt: x[0] + ": " + x[2] });
   });
-  if (!p.take && p.dl.length) p.end = Math.max(p.end, p.dl[p.dl.length - 1].end + 0.5);
+  if (!p.loopOn && p.dl.length) p.end = Math.max(p.end, p.dl[p.dl.length - 1].end + 0.5);
   plan = Object.assign(p, { start: st }); playing = true; phase = "song"; ui(); setStatus("");
-  timer = setTimeout(() => { if (my === run) start(i, "after", 0); }, Math.max(0, (st + p.end - ctx.currentTime) * 1000) + 30);
+  if (!p.forever) timer = setTimeout(() => { if (my === run) start(i, "after", 0); }, Math.max(0, (st + p.end - ctx.currentTime) * 1000) + 30);
   if (through && i + 1 < SONGS.length) load(songFile(i + 1, mix), SONGS[i + 1].dur).catch(() => {});
 }
 
@@ -856,19 +866,27 @@ function pause() {
   ui(); setStatus("Paused.");
 }
 function resume() {
+  if (what === "loop") return playLoop(cur);
   if (phase === "gap") return start(Math.min(cur + 1, SONGS.length - 1), "before", 0);
   if ((phase === "before" || phase === "after") && dlg) return start(cur, phase, dlg.k);
   if (plan && plan.i === cur && plan.paused) return start(cur, "song", plan.paused);
   start(cur, "before", 0);
 }
-async function playLoop() {
-  stopEverything(); audio(); await ctx.resume(); const my = run;
-  try { const b = await load(loopFile(cur), SONGS[cur].loopDur); if (my !== run) return; loopStart = ctx.currentTime + 0.05; src(b, loopStart, 0, true); loopMode = true; $("loop").setAttribute("aria-pressed", "true"); ui(); setStatus(""); }
-  catch (e) { setStatus("Couldn't load the Loop."); }
+// Loop only: the Loop repeats until Stop, with a Loop or Song + Loop guitar take's Loop part over it.
+async function playLoop(i) {
+  i = i == null ? cur : i; stopEverything(); audio(); await ctx.resume(); const my = run;
+  if (i !== cur) { cur = i; renderNow(); }
+  const s = SONGS[i], g = soloTake(i), k = g && takeKind(g);
+  try {
+    const [b, tb] = await Promise.all([load(loopFile(i), s.loopDur), k === "loop" || k === "songloop" ? loadTake(g) : null]);
+    if (my !== run) return; loopStart = ctx.currentTime + 0.05; src(b, loopStart, 0, true);
+    if (tb) src(tb, loopStart, (k === "songloop" ? s.dur : 0) + (g.offset || 0));
+    loopMode = true; phase = "song"; plan = null; dlg = null; ui(); setStatus("");
+  } catch (e) { setStatus("Couldn't load the Loop."); }
 }
 
 // ---------------- rendering ----------------
-function setStatus(t) { $("status").textContent = t || (through ? "Playing through the act." : "Playing this song only."); }
+function setStatus(t) { $("status").textContent = t || (what === "loop" ? "Looping until Stop." : through ? "Playing all songs." : "Playing this song only."); }
 function ui() {
   $("play").textContent = playing || loopMode ? "Pause" : "Play";
   $("prev").disabled = cur === 0; $("next").disabled = cur === SONGS.length - 1;
@@ -892,7 +910,7 @@ function renderNow() {
   document.querySelectorAll(".song").forEach((el, i) => el.classList.toggle("cur", i === cur));
   if (lyrMode === "browse") showDialogueBrowse(); else showLyrics();
   const p = makePlan(cur), z = $("soloZone");
-  if (p.take) { z.hidden = false; z.style.left = (p.dur / p.end * 100) + "%"; z.style.width = ((p.end - p.dur) / p.end * 100) + "%"; } else z.hidden = true;
+  if (p.loopOn) { z.hidden = false; z.style.left = (p.dur / p.end * 100) + "%"; z.style.width = ((p.end - p.dur) / p.end * 100) + "%"; } else z.hidden = true;
   $("fill").style.width = "0%";
   $("pos").innerHTML = "<b>Bar 1 · beat 1</b> · 0:00 / " + fmtT(p.end);
   $("stage").textContent = "Ready"; $("stage").className = "stage";
@@ -964,7 +982,7 @@ function showDialogueBrowse() {
     box.append(mk("div", "sub-h", h));
     xs.forEach((x, j) => {
       const at = p === "during" && dlgAud(cur).duringAt;
-      const go = () => { if (!dialogueOn) setMode(solosOn ? "both" : "dlg"); at ? start(cur, "song", Math.max(0, at[j] - 2)) : p === "after" ? start(cur, "after", j) : start(cur, "before", p === "before" ? j : nb + 1 + j); };
+      const go = () => { if (!dialogueOn) setDialogue(true); if (what === "loop") setWhat("song"); at ? start(cur, "song", Math.max(0, at[j] - 2)) : p === "after" ? start(cur, "after", j) : start(cur, "before", p === "before" ? j : nb + 1 + j); };
       box.append(dlgLineEl(cur, p, j, go));
       if (OPEN === ckey(act, s.n, p, j)) box.append(drawer(act, s.n, p, j));
     });
@@ -1014,7 +1032,11 @@ function tick() {
       const dl = (p.dl || []).find(d => pos >= d.at && pos < d.end), dt = dl ? dl.txt : "";
       if (dt !== p.dlShown) { p.dlShown = dt; setStatus(dt); }
     }
-    else if (p.take) { const pass = Math.min(p.passes, Math.floor((pos - p.loopAt) / s.loopDur) + 1); st.textContent = "Solo · " + p.take.handle; st.className = "stage solo"; $("pos").innerHTML = "<b>Solo · pass " + pass + " of " + p.passes + "</b> · " + fmtT(pos) + " / " + fmtT(p.end); }
+    else if (p.loopOn) {
+      const pass = Math.floor((pos - p.loopAt) / s.loopDur) + 1;
+      st.textContent = playing ? "Loop" + (p.take ? " · " + p.take.handle : "") : "Paused"; st.className = "stage solo";
+      $("pos").innerHTML = "<b>Loop · pass " + (p.forever ? pass + "</b> · repeating" : Math.min(p.passes, pass) + " of " + p.passes + "</b> · " + fmtT(pos) + " / " + fmtT(p.end));
+    }
   }
   requestAnimationFrame(tick);
 }
@@ -1039,7 +1061,7 @@ function renderPicks() { $("npPicks").replaceChildren(...pickEls(cur)); }
 // the vocal-take and solo selects for one song
 function pickEls(i) {
   const s = SONGS[i];
-  return [["vocal", "Vocal", "Guide vocal", "No vocal takes"], ["solo", "Solo", "None", "No solos yet"]].map(([kind, lab, none, empty]) => {
+  return [["vocal", "Vocal", "Guide vocal", "No vocal takes"], ["solo", "Guitar", "None", "No guitar takes"]].map(([kind, lab, none, empty]) => {
     const takes = takesFor(i, kind), box2 = document.createElement("label"); box2.className = "pick";
     const l = document.createElement("span"); l.textContent = lab;
     const sel = document.createElement("select");
@@ -1056,16 +1078,28 @@ function pickEls(i) {
 
 // ---------------- controls ----------------
 $("play").onclick = () => { if (rec.state !== "idle") return; if (loopMode) { stopEverything(); ui(); return; } if (playing) return pause(); resume(); };
-$("prev").onclick = () => { if (cur > 0) { const was = playing; stopEverything(); was ? start(cur - 1, "before", 0) : select(cur - 1); } };
-$("next").onclick = () => { if (cur < SONGS.length - 1) { const was = playing; stopEverything(); was ? start(cur + 1, "before", 0) : select(cur + 1); } };
+$("prev").onclick = () => { if (cur > 0) { const was = playing || loopMode; stopEverything(); was ? start(cur - 1, "before", 0) : select(cur - 1); } };
+$("next").onclick = () => { if (cur < SONGS.length - 1) { const was = playing || loopMode; stopEverything(); was ? start(cur + 1, "before", 0) : select(cur + 1); } };
 $("skip").onclick = () => { if (dlg) { const w = dlg.which, i = dlg.i; stopEverything(); dlg = null; w === "before" ? start(i, "song", 0) : advance(run); } };
-$("loop").onclick = () => { if (loopMode) { stopEverything(); ui(); return; } playLoop(); };
-$("through").onclick = () => { through = !through; $("through").setAttribute("aria-pressed", String(through)); setStatus(); };
-setMode(playMode);
-$("mode").onchange = () => {
-  setMode($("mode").value); renderNow();
-  if (playing && phase === "song" && plan) start(cur, "song", posNow());
-};
+$("through").onclick = () => { through = !through; $("through").setAttribute("aria-pressed", String(through)); setStatus(); if (playing && phase === "song" && plan && what === "songloop") start(cur, "song", posNow()); };
+setWhat(what); setDialogue(dialogueOn);
+document.querySelectorAll("#what [data-what]").forEach(b => b.onclick = () => {
+  if (b.dataset.what === what) return;
+  const wasSong = playing && phase === "song" && plan, wasLoop = loopMode, at = wasSong ? Math.min(posNow(), SONGS[cur].dur - 0.05) : 0;
+  setWhat(b.dataset.what); renderNow(); setStatus();
+  if (wasSong || wasLoop) what === "loop" ? playLoop(cur) : start(cur, "song", at);
+});
+$("dlgToggle").onclick = () => { setDialogue(!dialogueOn); if (playing && phase === "song" && plan) start(cur, "song", posNow()); };
+// Spacebar starts and stops playback (and stops a recording), except while typing.
+document.addEventListener("keydown", e => {
+  if (e.code !== "Space" || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+  const el = e.target;
+  if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
+  if ($("reviewPanel").open) return;
+  e.preventDefault();
+  if (rec.state === "recording") return stopRecording();
+  $("play").click();
+});
 function showRunningOrder(on) { $("roPanel").hidden = !on; $("roToggle").setAttribute("aria-expanded", String(on)); $("roToggle").textContent = on ? "Hide running order" : "Show running order"; }
 $("roToggle").onclick = () => showRunningOrder($("roPanel").hidden);
 $("roClose").onclick = () => showRunningOrder(false);
@@ -1188,16 +1222,17 @@ function recLabels() {
     ? "Syn2 for " + s.title + ": the Band mix plays from the count-in. Use headphones."
     : rec.kind === "vocal"
     ? "The Band mix plays from the count-in. Use headphones."
-    : (rec.gm === "full" ? "The song, then the Loop straight on until Stop." : "Two bars of click, then the Loop until Stop.")
-      + " Your solo is the last two complete passes. Guitar into the instrument input, with direct monitoring.";
+    : (rec.gm === "song" ? "The song plays from the count-in and recording stops at its end; your take is the whole song."
+      : (rec.gm === "songloop" ? "The song, then the Loop straight on until Stop." : "Two bars of click, then the Loop until Stop.")
+        + " Your take keeps the last two complete passes.") + " Guitar into the instrument input, with direct monitoring.";
   gtrUI();
 }
-// guitar: Full song or Loop only
-rec.gm = store.get("mp_gm") === "full" ? "full" : "loop";
+// guitar: Full song (stops at the song's end), Song + Loop, or Loop only
+rec.gm = { full: "songloop", song: "song", songloop: "songloop" }[store.get("mp_gm")] || "loop";
 rec.limit = [0, 4, 8, 16].includes(+store.get("mp_limit")) ? +store.get("mp_limit") : 0;   // Loop passes before an automatic Stop; 0 = until Stop
 $("recLimit").onchange = () => { rec.limit = +$("recLimit").value; store.set("mp_limit", String(rec.limit)); };
 function gtrUI() {
-  $("gtrRow").hidden = $("recLimit").hidden = rec.kind !== "solo" || $("recPanel").hidden;
+  $("gtrRow").hidden = rec.kind !== "solo" || $("recPanel").hidden; $("recLimit").hidden = $("gtrRow").hidden || rec.gm === "song";
   $("recLimit").value = String(rec.limit); $("recLimit").disabled = rec.state === "recording";
   document.querySelectorAll("#gtrRow [data-gm]").forEach(b => { b.setAttribute("aria-pressed", String(b.dataset.gm === rec.gm)); b.disabled = rec.state === "recording"; });
 }
@@ -1284,7 +1319,7 @@ $("recGo").onclick = async () => {
   const i = cur, s = SONGS[i], my = ++run; stopAll();
   rec.i = i; rec.act = act; rec.chunks = []; rec.take = null;
   let bed;
-  const full = rec.kind === "solo" && rec.gm === "full"; let song = null; rec.full = full;
+  const gm = rec.kind === "solo" ? rec.gm : null, full = gm === "song" || gm === "songloop"; let song = null; rec.full = full; rec.gmAt = gm;
   try {
     bed = rec.kind !== "solo" ? await load(songFile(i, "band"), s.dur) : await load(loopFile(i), s.loopDur);
     if (full) song = await load(songFile(i, mix), s.dur);
@@ -1292,19 +1327,20 @@ $("recGo").onclick = async () => {
   const spb = 60 / s.bpm, bar = spb * s.meter, t0 = ctx.currentTime + 0.4;
   rec.cap = capture(c => { rec.chunks.push(c); meterFrom(rec.chunks); if (rec.kind === "solo" && rec.chunks.length % 32 === 0) pruneLoopChunks(s.loopDur); });
   if (rec.kind !== "solo") { rec.t0 = t0; src(bed, t0, 0); rec.autoStop = setTimeout(stopRecording, (s.dur + 0.6) * 1000); }
+  else if (gm === "song") { rec.t0 = t0; rec.loopT = Infinity; src(song, t0, 0); rec.autoStop = setTimeout(stopRecording, (s.dur + 0.6) * 1000); }
   else if (full) {   // the song, then the Loop straight on until Stop (as it plays back)
     rec.t0 = t0; src(song, t0, 0);
     rec.loopT = t0 + s.dur; src(bed, rec.loopT, 0, true);
   }
   else { for (let k = 0; k < 2 * s.meter; k++) src(makeClick(k % s.meter === 0), t0 + k * spb, 0); rec.t0 = t0 + 2 * bar; rec.loopT = rec.t0; src(bed, rec.t0, 0, true); }
-  if (rec.kind === "solo" && rec.limit) rec.autoStop = setTimeout(stopRecording, (rec.loopT + rec.limit * s.loopDur + 0.6 - ctx.currentTime) * 1000);
+  if (rec.kind === "solo" && gm !== "song" && rec.limit) rec.autoStop = setTimeout(stopRecording, (rec.loopT + rec.limit * s.loopDur + 0.6 - ctx.currentTime) * 1000);
   gtrUI();
   rec.state = "recording"; $("recGo").textContent = "Stop"; $("recGo").classList.add("on");
   ["recListen", "recSave", "recDiscard", "recCalibrate"].forEach(id => $(id).disabled = true);
   $("stage").textContent = "Recording"; $("stage").className = "stage rec";
   rec.ticker = setInterval(() => {
     const t = Math.max(0, ctx.currentTime - rec.t0), lt = ctx.currentTime - rec.loopT;
-    const what = rec.kind !== "solo" ? " / " + fmtT(s.dur) : lt >= 0 ? " · Loop pass " + (Math.floor(lt / s.loopDur) + 1) + (rec.limit ? " of " + rec.limit : "") : full && t < s.dur ? " · song" : " · count-in";
+    const what = rec.kind !== "solo" || gm === "song" ? " / " + fmtT(s.dur) : lt >= 0 ? " · Loop pass " + (Math.floor(lt / s.loopDur) + 1) + (rec.limit ? " of " + rec.limit : "") : full && t < s.dur ? " · song" : " · count-in";
     $("pos").innerHTML = "<b>Recording</b> · " + fmtT(t) + what;
   }, 200);
 };
@@ -1316,12 +1352,12 @@ function stopRecording() {
     const sr = ctx.sampleRate, lat = (+$("recLatency").value || 0) / 1000;
     const dur = endT - rec.t0;
     if (dur < 1) { rec.state = "idle"; resetRecUI(); $("recNote").textContent = "That take was too short. Try again."; return; }
-    if (rec.kind === "solo") {
+    if (rec.kind === "solo" && rec.gmAt !== "song") {
       const s = SONGS[rec.i], loopAt = rec.full ? s.dur : 0;
       const tk = await keepLastPasses((a, b) => assemble(rec.chunks, (rec.t0 + a) * sr, (rec.t0 + b) * sr), dur, sr, lat, loopAt, s.loopDur);
       if (!tk) { rec.state = "idle"; resetRecUI(); gtrUI(); $("recNote").textContent = "Play at least two complete passes of the Loop before pressing Stop."; return; }
       rec.take = tk; rec.state = "review";
-      $("recNote").textContent = "You played " + tk.passes + " complete passes of the Loop; your solo is the last two. Listen back, then save it or discard it.";
+      $("recNote").textContent = "You played " + tk.passes + " complete passes of the Loop; your take keeps the last two. Listen back, then save it or discard it.";
     } else {
       const blob = await toWav24k(assemble(rec.chunks, rec.t0 * sr, endT * sr), sr);
       const buf = await ctx.decodeAudioData(await blob.arrayBuffer());
@@ -1340,7 +1376,7 @@ $("recListen").onclick = async () => {
   if (!rec.take) return; stopAll(); const s = SONGS[rec.i];
   if ($("recListen").textContent === "Stop") { $("recListen").textContent = "Listen back"; return; }
   const t0 = ctx.currentTime + 0.1;
-  if (rec.kind !== "solo") { src(await load(songFile(rec.i, "band"), s.dur), t0, 0); }
+  if (rec.kind !== "solo" || rec.gmAt === "song") { src(await load(songFile(rec.i, rec.kind === "solo" ? mix : "band"), s.dur), t0, 0); }
   else if (rec.full) {
     const loopAt = s.dur, passes = Math.max(1, Math.round((rec.take.dur - loopAt) / s.loopDur));
     src(await load(songFile(rec.i, mix), s.dur), t0, 0);
@@ -1355,7 +1391,7 @@ $("recSave").onclick = async () => {
   const s = ACTS[rec.act].songs[rec.i];
   if (!BACKEND_URL) {
     const a = document.createElement("a"); a.href = URL.createObjectURL(rec.take.blob);
-    a.download = "MagicPick_A" + rec.act + "-" + s.n + "_" + rec.kind + (rec.kind === "solo" ? (rec.full ? "-full" : "-loop") : "") + "_" + new Date().toISOString().slice(0, 16).replace(/[:T]/g, "") + ".wav"; a.click();
+    a.download = "MagicPick_A" + rec.act + "-" + s.n + "_" + rec.kind + (rec.kind === "solo" ? "-" + rec.gmAt : "") + "_" + new Date().toISOString().slice(0, 16).replace(/[:T]/g, "") + ".wav"; a.click();
     $("recNote").textContent = "The takes library isn't connected yet, so the take was downloaded to this computer.";
     return;
   }
