@@ -198,6 +198,7 @@ a.btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
 .ctl button { padding: 6px 9px; font-size: 14px; }
 .ctl button.primary { min-width: 64px; }
 .ctl .seg button { padding: 6px 9px; font-size: 14px; }
+.seg select { border: 0; border-left: 1px solid var(--line); border-radius: 0; background: var(--panel); color: var(--ink); font: inherit; font-size: 14px; padding: 0 6px; cursor: pointer; }
 .ctl .sep { width: 1px; align-self: stretch; background: var(--line); margin: 2px 2px; }
 [hidden] { display: none !important; }
 .foot { display: flex; flex-wrap: wrap; gap: 6px 20px; justify-content: center; padding-top: 18px; border-top: 1px solid var(--line); font-size: 14px; }
@@ -250,6 +251,9 @@ a.btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
         <button data-what="song" aria-pressed="true">Full song</button>
         <button data-what="songloop" aria-pressed="false">Song + Loop</button>
         <button data-what="loop" aria-pressed="false">Loop only</button>
+        <select id="loopN" aria-label="How many times the Loop plays for this song" title="How many times the Loop plays for this song (remembered per song)">
+          <option value="2">×2</option><option value="4">×4</option><option value="8">×8</option><option value="0">∞</option>
+        </select>
       </div>
       <button id="dlgToggle" class="toggle" aria-pressed="true" title="Play the dialogue between and during songs">Dialogue</button>
       <button id="skip" hidden>Skip dialogue</button>
@@ -308,7 +312,7 @@ a.btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
       <div class="rs-setup" id="recSetup" hidden>
         <div class="grid2">
           <label class="f">Who can hear this take
-            <select id="recPrivacy"><option value="public">Everyone (public)</option><option value="private">Only me and the director (private)</option></select>
+            <select id="recPrivacy"><option value="public">Everyone (public)</option><option value="private">Only me and Brian (private)</option></select>
           </label>
           <label class="f">Input
             <select id="recDevice"><option value="">Default input</option></select>
@@ -518,13 +522,13 @@ const soloTake = i => { const id = picks.solo[key(act, SONGS[i].n)]; return id ?
 // ---------------- comments and script edits ----------------
 // Every lyric and dialogue line has a 💬 button. A comment is either a suggested new wording ("Replace line")
 // or a note. Each person's suggestions form their own version, picked from the Text dropdown.
-// The director ticks suggestions and presses Update; applied wording then shows here for everyone,
+// Brian ticks suggestions and presses Update; applied wording then shows here for everyone,
 // and Claude copies it into the Ableton clip names (and data.js) when asked.
 const BASE = JSON.parse(JSON.stringify(ACTS)); // the text as built from Ableton
 let COMMENTS = [], commentsSig = "";
 let VIEW = "";            // "" = current script, or a commenter's name to see their version
 let OPEN = null;          // the line whose comment box is open
-const TICK = new Set();   // suggestions the director has ticked for Update
+const TICK = new Set();   // suggestions Brian has ticked for Update
 const DRAFTS = new Map(); // unsaved comment text, kept while lines re-draw
 let acctWanted = false;
 const PART_ORDER = { before: 0, during: 1, lyrics: 2, after: 3 };
@@ -676,7 +680,7 @@ function renderViewSel() {
   sel.value = VIEW; sel.hidden = !names.length;
 }
 
-// Director only: every open comment in this act, grouped by line, with the Update button.
+// Brian only: every open comment in this act, grouped by line, with the Update button.
 function renderReview() {
   $("rvOpen").hidden = !IS_ADMIN; if (!IS_ADMIN) { if ($("reviewPanel").open) $("reviewPanel").close(); return; }
   const list = $("rvList"); list.innerHTML = "";
@@ -730,7 +734,7 @@ $("rvUpdate").onclick = async () => {
     $("rvNote").textContent = "Updated " + j.applied + (j.applied === 1 ? " line" : " lines") + ". Everyone sees the new wording now.";
   } catch (e) {
     $("rvUpdate").disabled = false;
-    $("rvNote").textContent = { two_on_one_line: "Two suggestions are ticked on the same line. Untick one.", not_director: "Only the director can update." }[e.message] || "Couldn't update (" + e.message + "). Try again.";
+    $("rvNote").textContent = { two_on_one_line: "Two suggestions are ticked on the same line. Untick one.", not_director: "Only Brian can update." }[e.message] || "Couldn't update (" + e.message + "). Try again.";
   }
 };
 $("viewSel").onchange = () => { VIEW = $("viewSel").value; rerenderLines(); };
@@ -750,6 +754,12 @@ const WHATS = ["song", "songloop", "loop"], oldMode = store.get("mp_mode");
 let what = WHATS.includes(store.get("mp_what")) ? store.get("mp_what") : (oldMode === "solo" || oldMode === "both" ? "songloop" : "song");
 let dialogueOn = store.get("mp_dlg2") != null ? store.get("mp_dlg2") === "1" : oldMode !== "solo" && oldMode !== "songs";
 let cur = 0, mix = "bandvox", through = true;
+// Loop length per song: x2, x4, x8 or until Stop (0), remembered in this browser
+const LOOPN = [2, 4, 8, 0];
+const loopKey = i => "mp_loopn_" + act + "_" + SONGS[i].n;
+function loopN(i) { const v = parseInt(store.get(loopKey(i)), 10); return LOOPN.includes(v) ? v : 4; }
+function showLoopN() { const el = $("loopN"); if (el) el.value = String(loopN(cur)); }
+let loopPasses = 0;   // Loop only: passes for the loop now playing (0 = until Stop)
 function setWhat(w) { what = w; store.set("mp_what", w); document.querySelectorAll("#what [data-what]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.what === w))); }
 function setDialogue(on) { dialogueOn = on; store.set("mp_dlg2", on ? "1" : "0"); $("dlgToggle").setAttribute("aria-pressed", String(on)); }
 let phase = "song", playing = false, loopMode = false, plan = null, timer = null, run = 0;
@@ -774,7 +784,8 @@ function makePlan(i) {
   p.full = !!t && (k === "song" || k === "songloop");
   if (what === "songloop") {
     const n = !t || k === "song" ? 0 : Math.max(1, Math.round((k === "songloop" ? t.dur - s.dur : t.dur) / s.loopDur));
-    p.loopOn = true; p.forever = !n && !through; p.passes = n || 2;   // no take and not Play All: the Loop repeats until Stop
+    const L = loopN(i);   // no take: the song's Loop setting (until Stop only when not Play All)
+    p.loopOn = true; p.forever = !n && !L && !through; p.passes = n || L || 2;
     p.end = s.dur + p.passes * s.loopDur;
   } else p.end = s.dur;
   return p;
@@ -806,6 +817,14 @@ async function playSong(i, pos, my) {
   setStatus("Loading " + SONGS[i].title + "…");
   let song, loopB, takeB, vocB, durB = [];
   const dAt = dialogueOn && dlgAud(i).duringAt;
+  // lines that run past the end of the song: the band vamps on the Loop until they finish
+  if (dAt && !p.forever) {
+    const lens = dlgAud(i).during || [], last = Math.max(...dAt.map((a, k) => a + (lens[k] || 0))) + 0.5;
+    if (last > p.end) {
+      const L = SONGS[i].loopDur, passes = Math.ceil((last - p.dur) / L - 0.05);
+      p.loopOn = true; p.passes = Math.max(p.passes || 0, passes); p.end = p.dur + p.passes * L;
+    }
+  }
   try {
     [song, loopB, takeB, vocB, durB] = await Promise.all([
       load(songFile(i, m), SONGS[i].dur),
@@ -851,7 +870,15 @@ async function playDialogue(i, which, k, my) {
     if (dlg.k >= lines.length) { dlg = null; return which === "before" ? start(i, "song", 0) : advance(my); }
     const b = await bufs[dlg.k]; if (my !== run) return;
     markDialogue(); let d = lineSecs(lines[dlg.k]);
-    if (b) { src(b, ctx.currentTime + 0.03, 0); d = b.duration + 0.1; }   // files carry 0.35 s of room tail
+    const L = lines[dlg.k], A = dlgAud(i), now = ctx.currentTime + 0.03;
+    if (b) { src(b, now, 0); d = b.duration + 0.1; }   // files carry 0.35 s of room tail
+    // the Act 2 opening fight: the next line can cut in before this one ends, and some lines come back underneath
+    if (b && L.part === "before" && A.beforeNext && A.beforeNext[L.idx] != null) d = A.beforeNext[L.idx];
+    if (L.part === "before" && A.beforeEcho) for (const [again, under, off, db] of A.beforeEcho) {
+      if (under - 1 !== L.idx) continue;
+      const k2 = lines.findIndex(x => x.part === "before" && x.idx === again - 1), b2 = k2 >= 0 && await bufs[k2];
+      if (b2 && my === run) src(b2, now + off, 0, false, Math.pow(10, db / 20));
+    }
     dlg.until = performance.now() + d * 1000; dlg.len = d;
     timer = setTimeout(() => { dlg.k++; step(); }, d * 1000);
   };
@@ -879,14 +906,23 @@ async function playLoop(i) {
   const s = SONGS[i], g = soloTake(i), k = g && takeKind(g);
   try {
     const [b, tb] = await Promise.all([load(loopFile(i), s.loopDur), k === "loop" || k === "songloop" ? loadTake(g) : null]);
-    if (my !== run) return; loopStart = ctx.currentTime + 0.05; src(b, loopStart, 0, true);
-    if (tb) src(tb, loopStart, (k === "songloop" ? s.dur : 0) + (g.offset || 0));
+    if (my !== run) return; loopStart = ctx.currentTime + 0.05; const lp = src(b, loopStart, 0, true);
+    const tk = tb ? src(tb, loopStart, (k === "songloop" ? s.dur : 0) + (g.offset || 0)) : null;
+    loopPasses = loopN(i);
+    if (loopPasses) {   // x2 / x4 / x8: stop after that many passes; with Play All, the next song's Loop follows
+      const end = loopStart + loopPasses * s.loopDur; lp.stop(end); if (tk) tk.stop(end);
+      timer = setTimeout(() => {
+        if (my !== run) return;
+        if (through && i + 1 < SONGS.length) return playLoop(i + 1);
+        stopEverything(); ui(); setStatus("Loop finished.");
+      }, Math.max(0, (end - ctx.currentTime) * 1000) + 30);
+    }
     loopMode = true; phase = "song"; plan = null; dlg = null; ui(); setStatus("");
   } catch (e) { setStatus("Couldn't load the Loop."); }
 }
 
 // ---------------- rendering ----------------
-function setStatus(t) { $("status").textContent = t || (what === "loop" ? "Looping until Stop." : through ? "Playing all songs." : "Playing this song only."); }
+function setStatus(t) { $("status").textContent = t || (what === "loop" ? (loopN(cur) ? "Looping ×" + loopN(cur) + (through ? ", then the next song's Loop." : ".") : "Looping until Stop.") : through ? "Playing all songs." : "Playing this song only."); }
 function ui() {
   $("play").textContent = playing || loopMode ? "Pause" : "Play";
   $("prev").disabled = cur === 0; $("next").disabled = cur === SONGS.length - 1;
@@ -901,6 +937,7 @@ function renderAct() {
 }
 let lineEls = [], lastLine = -2, lyrMode = "lyrics";
 function renderNow() {
+  showLoopN();
   const s = SONGS[cur];
   $("npNum").textContent = s.n + " / " + SONGS.length;
   $("npTitle").textContent = s.title;
@@ -1013,8 +1050,10 @@ function tick() {
   const s = SONGS[cur], st = $("stage");
   if (rec.state === "recording") { /* recorder draws its own status */ }
   else if (loopMode) {
-    const p = (ctx.currentTime - loopStart) % s.loopDur, spb = 60 / s.bpm;
-    $("pos").innerHTML = "<b>Loop · bar " + (Math.floor(p / spb / s.meter) + 1) + " of " + s.loopBars + "</b> · repeating";
+    const el = ctx.currentTime - loopStart, p = el % s.loopDur, spb = 60 / s.bpm, pass = Math.floor(el / s.loopDur) + 1;
+    $("pos").innerHTML = "<b>Loop · bar " + (Math.floor(p / spb / s.meter) + 1) + " of " + s.loopBars + "</b> · " +
+      (loopPasses ? "pass " + Math.min(pass, loopPasses) + " of " + loopPasses : "repeating");
+    if (loopPasses) $("fill").style.width = Math.min(100, el / (loopPasses * s.loopDur) * 100) + "%";
     st.textContent = "Loop"; st.className = "stage count";
   } else if (dlg && (phase === "before" || phase === "after")) {
     st.textContent = playing ? "Dialogue" : "Paused"; st.className = "stage dlg";
@@ -1041,7 +1080,7 @@ function tick() {
   requestAnimationFrame(tick);
 }
 function renderWho() {
-  $("whoBar").textContent = me.handle ? "Signed in as " + me.handle + (IS_ADMIN ? " (director)" : "") : "";
+  $("whoBar").textContent = me.handle ? "Signed in as " + me.handle : "";
   $("whoSign").hidden = !!me.handle || !BACKEND_URL;
 }
 function renderSongs() {
@@ -1082,7 +1121,12 @@ $("prev").onclick = () => { if (cur > 0) { const was = playing || loopMode; stop
 $("next").onclick = () => { if (cur < SONGS.length - 1) { const was = playing || loopMode; stopEverything(); was ? start(cur + 1, "before", 0) : select(cur + 1); } };
 $("skip").onclick = () => { if (dlg) { const w = dlg.which, i = dlg.i; stopEverything(); dlg = null; w === "before" ? start(i, "song", 0) : advance(run); } };
 $("through").onclick = () => { through = !through; $("through").setAttribute("aria-pressed", String(through)); setStatus(); if (playing && phase === "song" && plan && what === "songloop") start(cur, "song", posNow()); };
-setWhat(what); setDialogue(dialogueOn);
+setWhat(what); setDialogue(dialogueOn); showLoopN();
+$("loopN").onchange = e => {
+  store.set(loopKey(cur), e.target.value); setStatus();
+  if (loopMode) playLoop(cur);
+  else if (playing && phase === "song" && plan && what === "songloop") start(cur, "song", posNow());
+};
 document.querySelectorAll("#what [data-what]").forEach(b => b.onclick = () => {
   if (b.dataset.what === what) return;
   const wasSong = playing && phase === "song" && plan, wasLoop = loopMode, at = wasSong ? Math.min(posNow(), SONGS[cur].dur - 0.05) : 0;
@@ -1405,7 +1449,7 @@ $("recSave").onclick = async () => {
     rec.take = null; rec.state = "idle"; ["recListen", "recSave", "recDiscard"].forEach(id => $(id).disabled = true);
     await refreshTakes();
     picks[rec.kind][key(rec.act, s.n)] = j.id; renderSongs(); renderSynthTakes();
-    $("recNote").textContent = "Saved. It's selected in the running order" + ($("recPrivacy").value === "private" ? " and only you and the director can hear it." : ".");
+    $("recNote").textContent = "Saved. It's selected in the running order" + ($("recPrivacy").value === "private" ? " and only you and Brian can hear it." : ".");
   } catch (e) {
     $("recSave").disabled = false;
     $("recNote").textContent = "Couldn't save the take (" + e.message + "). Try again in a moment.";
@@ -1682,7 +1726,7 @@ $("synthFile").onchange = async () => {
     const j = await api("upload", { act: +a, song: s.n, kind: "synth", private: priv, dur, offset: 0, mime: "audio/wav", data: b64 });
     takeBufs.set(j.id, ctx.decodeAudioData(await wav.arrayBuffer()));
     picks.synth[key(a, s.n)] = j.id; await refreshTakes();
-    $("midiNote2").textContent = "Uploaded" + (buf.duration > dur + 0.5 ? " (trimmed to the end of the song)" : "") + ". It's selected on Syn2" + (priv ? " and only you and the director can hear it." : ".");
+    $("midiNote2").textContent = "Uploaded" + (buf.duration > dur + 0.5 ? " (trimmed to the end of the song)" : "") + ". It's selected on Syn2" + (priv ? " and only you and Brian can hear it." : ".");
   } catch (e) {
     $("midiNote2").textContent = e.message === "bad_kind" ? "The takes library needs its update before it can store Syn2 parts." : e.message === "too_big" ? "That file is too long to upload." : "Couldn't upload that file (" + (e.message || "unreadable audio") + ").";
   }

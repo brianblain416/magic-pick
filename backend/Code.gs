@@ -9,7 +9,7 @@
  *   Settings sheet: SALT, ADMIN_EMAILS (comma-separated; can hear every private take)
  *   Comments sheet: one row per comment on a lyric or dialogue line. A "replace" comment
  *                   is a suggested new wording (each person's suggestions form their own
- *                   version); a "note" just stays attached. The director ticks suggestions
+ *                   version); a "note" just stays attached. Brian ticks suggestions
  *                   and presses Update, which marks them "applied" — the site then shows
  *                   the new wording. Nothing is deleted: removed comments are marked removed.
  *
@@ -127,7 +127,7 @@ function uncomment_(q, me, admin) {
   throw new Error('not_found');
 }
 
-// applyEdits: {ids: [...]} — director only. Makes the ticked suggestions the new wording.
+// applyEdits: {ids: [...]} — Brian only. Makes the ticked suggestions the new wording.
 function applyEdits_(q, me, admin) {
   if (!me || !admin) throw new Error('not_director');
   const ids = (Array.isArray(q.ids) ? q.ids : []).map(String).slice(0, 300);
@@ -236,13 +236,13 @@ function signin_(q) {
   const link = SITE_URL + '?signin=' + token;
   MailApp.sendEmail({
     to: email,
-    subject: 'Magic Pick rehearsal — sign-in link',
+    subject: 'Magic Pick Player — sign-in link',
     body: 'Hi ' + name + ',\n\nOpen this link on the computer or phone you want to record on:\n\n' + link +
       '\n\nIt works once and expires in ' + LINK_MINUTES + ' minutes. If you didn\'t ask for this, ignore this email.',
     htmlBody: '<p>Hi ' + esc_(name) + ',</p><p>Open this link on the computer or phone you want to record on:</p>' +
-      '<p><a href="' + link + '">Sign in to the Magic Pick rehearsal page</a></p>' +
+      '<p><a href="' + link + '">Sign in to the Magic Pick Player</a></p>' +
       '<p style="color:#666">It works once and expires in ' + LINK_MINUTES + ' minutes. If you didn\'t ask for this, ignore this email.</p>',
-    name: 'Magic Pick rehearsal'
+    name: 'Magic Pick Player'
   });
   return { ok: true, name };
 }
