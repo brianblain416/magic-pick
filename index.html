@@ -1151,6 +1151,8 @@ document.querySelectorAll(".seg button[data-mix]").forEach(b => b.onclick = () =
   mix = b.dataset.mix; document.querySelectorAll(".seg button[data-mix]").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
   if (playing && phase === "song") start(cur, "song", posNow());
 });
+// Hovering an Act button shows which Ableton set its audio was built from (sitebuild.py writes ACTS[n].set).
+document.querySelectorAll(".tabs button").forEach(b => { const v = (ACTS[b.dataset.act] || {}).set; if (v) b.title = "Built from Ableton set " + v; });
 document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
   if (b.dataset.act === act || rec.state !== "idle") return;
   stopEverything(); act = b.dataset.act; store.set("mp_act", act); renderAct(); setStatus("Press Play.");
