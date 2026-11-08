@@ -185,7 +185,16 @@ a.btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
 .rvdlg::backdrop { background: rgba(0,0,0,.45); }
 #rvOpen.has { border-color: var(--accent); color: var(--accent); }
 /* compact transport */
-.np { gap: 8px; padding: 10px 14px; }
+.np { grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 8px 12px; position: sticky; top: 0; z-index: 30; box-shadow: 0 6px 14px -8px rgba(0,0,0,.35); }
+.np .npinfo .meta { flex: 1 1 200px; min-width: 0; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.np .npinfo .meta b { color: var(--ink); font-weight: 500; }
+.np .npinfo .pick select { max-width: 150px; font-size: 13px; padding: 4px 6px; }
+@media (max-width: 600px) {
+  .np .npinfo .picks { flex: 1 1 100%; flex-wrap: nowrap; gap: 8px; }
+  .np .npinfo .pick { flex: 1 1 0; min-width: 0; gap: 4px; }
+  .np .npinfo .pick select { max-width: none; width: 100%; min-width: 0; }
+}
+.np #status { font-size: 12px; min-height: 1.3em; line-height: 1.3; }
 .nphead { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
 .nptitle { flex: 0 1 auto; min-width: 0; display: flex; align-items: baseline; gap: 10px; }
 .nptitle h2 { font-size: clamp(18px, 3.4vw, 24px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
@@ -922,7 +931,12 @@ async function playLoop(i) {
 }
 
 // ---------------- rendering ----------------
-function setStatus(t) { $("status").textContent = t || (what === "loop" ? (loopN(cur) ? "Looping ×" + loopN(cur) + (through ? ", then the next song's Loop." : ".") : "Looping until Stop.") : through ? "Playing all songs." : "Playing this song only."); }
+function setStatus(t) {
+  const L = loopN(cur), p = what === "songloop" ? makePlan(cur) : null;
+  $("status").textContent = t || (what === "loop" ? (L ? "Looping ×" + L + (through ? ", then the next song's Loop." : ".") : "Looping until Stop.")
+    : p ? "Song, then the Loop " + (p.forever ? "until Stop." : "×" + p.passes + (through ? ", then the next song." : "."))
+    : through ? "Playing all songs." : "Playing this song only.");
+}
 function ui() {
   $("play").textContent = playing || loopMode ? "Pause" : "Play";
   $("prev").disabled = cur === 0; $("next").disabled = cur === SONGS.length - 1;
@@ -941,12 +955,18 @@ function renderNow() {
   const s = SONGS[cur];
   $("npNum").textContent = s.n + " / " + SONGS.length;
   $("npTitle").textContent = s.title;
-  const nd = s.dlg.before.length + s.dlg.during.length + s.dlg.after.length;
-  $("npInfo").textContent = [s.scene, s.singer, s.meter + "/4", Math.round(s.bpm) + " BPM", fmtT(s.dur)].concat(nd ? [nd + " dialogue lines"] : []).join(" · ");
+  const nd = s.dlg.before.length + s.dlg.during.length + s.dlg.after.length, p = makePlan(cur);
+  const info = [s.scene, s.singer, s.meter + "/4", Math.round(s.bpm) + " BPM", fmtT(s.dur)].concat(nd ? [nd + " dialogue lines"] : []).join(" · ");
+  // Song + Loop / Loop only: the Loop's length and passes go on the same line as the song info
+  const n = what === "loop" ? loopN(cur) : p.forever ? 0 : p.passes;
+  const lp = what === "song" ? "" : "Loop ×" + (n ? n + " " + fmtT(n * s.loopDur) : "∞");
+  $("npInfo").textContent = "";
+  if (lp) { const b = document.createElement("b"); b.textContent = lp; $("npInfo").append(b, " · "); }
+  $("npInfo").append(info); $("npInfo").title = (lp ? "Loop: " + s.loopBars + " bars, " + (n ? n + " passes, " + fmtT(n * s.loopDur) : "until Stop") + " · " : "") + info;
   renderPicks();
   document.querySelectorAll(".song").forEach((el, i) => el.classList.toggle("cur", i === cur));
   if (lyrMode === "browse") showDialogueBrowse(); else showLyrics();
-  const p = makePlan(cur), z = $("soloZone");
+  const z = $("soloZone");
   if (p.loopOn) { z.hidden = false; z.style.left = (p.dur / p.end * 100) + "%"; z.style.width = ((p.end - p.dur) / p.end * 100) + "%"; } else z.hidden = true;
   $("fill").style.width = "0%";
   $("pos").innerHTML = "<b>Bar 1 · beat 1</b> · 0:00 / " + fmtT(p.end);
@@ -1123,7 +1143,7 @@ $("skip").onclick = () => { if (dlg) { const w = dlg.which, i = dlg.i; stopEvery
 $("through").onclick = () => { through = !through; $("through").setAttribute("aria-pressed", String(through)); setStatus(); if (playing && phase === "song" && plan && what === "songloop") start(cur, "song", posNow()); };
 setWhat(what); setDialogue(dialogueOn); showLoopN();
 $("loopN").onchange = e => {
-  store.set(loopKey(cur), e.target.value); setStatus();
+  store.set(loopKey(cur), e.target.value); renderNow(); setStatus();
   if (loopMode) playLoop(cur);
   else if (playing && phase === "song" && plan && what === "songloop") start(cur, "song", posNow());
 };
