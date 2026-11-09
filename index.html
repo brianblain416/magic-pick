@@ -29,7 +29,7 @@
 body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.5; }
 .wrap { max-width: 860px; margin: 0 auto; padding: 12px 16px 56px; display: grid; gap: 10px; }
 .top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
-.top h1 { flex: 1 1 auto; font-size: clamp(22px, 5vw, 30px); margin: 0; }
+.top h1 { flex: 1 1 auto; font-size: clamp(22px, 5vw, 26px); margin: 0; white-space: nowrap; }
 .top .tabs button { font-size: 15px; padding: 4px 12px; }
 .npinfo { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
 .npinfo .meta { flex: 1 1 220px; font-size: 12px; }
@@ -120,7 +120,8 @@ label.f { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
 label.f input, label.f select { color: var(--ink); }
 .meter { height: 8px; border-radius: 4px; background: var(--bg); border: 1px solid var(--line); overflow: hidden; }
 .meter i { display: block; height: 100%; width: 0; background: var(--rec); }
-.who-bar { font-family: var(--mono); font-size: 13px; color: var(--muted); }
+.who-bar { font-family: var(--mono); font-size: 13px; color: var(--muted); white-space: nowrap; }
+.who-bar:empty { display: none; }
 /* comments and script edits */
 .line { grid-template-columns: 64px minmax(0,1fr) auto; }
 .cbtn { font-family: var(--mono); font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 12px; background: transparent; color: var(--muted); opacity: .6; align-self: center; white-space: nowrap; }
@@ -186,21 +187,25 @@ a.btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
 #rvOpen.has { border-color: var(--accent); color: var(--accent); }
 /* compact transport */
 .np { grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 8px 12px; position: sticky; top: 0; z-index: 30; box-shadow: 0 6px 14px -8px rgba(0,0,0,.35); }
-.np .npinfo .meta { flex: 1 1 200px; min-width: 0; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.np .npinfo .meta b { color: var(--ink); font-weight: 500; }
-.np .npinfo .pick select { max-width: 150px; font-size: 13px; padding: 4px 6px; }
+.nphead #npInfo { flex: 1 1 0; min-width: 0; display: block; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nphead #npInfo b { color: var(--ink); font-weight: 500; }
+.npfoot { display: flex; align-items: center; gap: 4px 12px; min-width: 0; }
+.npfoot #status { flex: 1 1 0; min-width: 0; font-size: 12px; min-height: 1.3em; line-height: 1.3; }
+.npfoot .picks { display: flex; flex: 0 0 auto; gap: 10px; }
+.npfoot .pick { display: flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.npfoot .pick select { max-width: 150px; font-size: 13px; padding: 3px 6px; text-transform: none; letter-spacing: 0; font-family: var(--body); }
 @media (max-width: 600px) {
-  .np .npinfo .picks { flex: 1 1 100%; flex-wrap: nowrap; gap: 8px; }
-  .np .npinfo .pick { flex: 1 1 0; min-width: 0; gap: 4px; }
-  .np .npinfo .pick select { max-width: none; width: 100%; min-width: 0; }
+  .npfoot { flex-wrap: wrap; }
+  .npfoot #status { flex-basis: 100%; }
+  .npfoot .picks { flex: 1 1 100%; gap: 8px; }
+  .npfoot .pick { flex: 1 1 0; min-width: 0; gap: 4px; }
+  .npfoot .pick select { max-width: none; width: 100%; min-width: 0; }
 }
-.np #status { font-size: 12px; min-height: 1.3em; line-height: 1.3; }
 .nphead { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
 .nptitle { flex: 0 1 auto; min-width: 0; display: flex; align-items: baseline; gap: 10px; }
 .nptitle h2 { font-size: clamp(18px, 3.4vw, 24px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .nptitle .eyebrow { white-space: nowrap; }
-.nphead .pos { margin-left: 0; font-size: 13px; line-height: 1.3; width: auto !important; }
-.nptitle { flex: 1 1 auto; }
+.nphead .pos { margin-left: 0; white-space: nowrap; font-size: 13px; line-height: 1.3; width: auto !important; }
 @media (max-width: 600px) { .nptitle { flex-basis: 100%; } }
 .ctl { display: flex; flex-wrap: nowrap; gap: 5px; align-items: center; overflow-x: auto; scrollbar-width: thin; padding-bottom: 2px; }
 .ctl > * { flex: 0 0 auto; }
@@ -238,20 +243,20 @@ a.btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
       <button data-act="1" aria-pressed="true">Act 1</button>
       <button data-act="2" aria-pressed="false">Act 2</button>
     </div>
-    <button id="roToggle" class="small" aria-expanded="false" aria-controls="roPanel">Show running order</button>
+    <button id="roToggle" class="toggle small" aria-expanded="false" aria-pressed="false" aria-controls="roPanel" title="Show or hide the running order">Running order</button>
     <button id="recToggle" class="toggle small" aria-pressed="false" aria-controls="recArea" title="Record a vocal or guitar part, or get the MIDI">Recording</button>
     <span class="who-bar" id="whoBar"></span>
     <button id="whoSign" class="small" hidden>Sign in</button>
-    <button id="rvOpen" class="small" hidden aria-haspopup="dialog">Script edits</button>
+    <button id="rvOpen" class="small" hidden aria-haspopup="dialog" title="Script edits">Edits</button>
   </header>
 
   <section class="panel np" aria-label="Now playing">
     <div class="nphead">
       <div class="nptitle"><span class="eyebrow" id="npNum"></span><h2 id="npTitle"></h2></div>
+      <span class="meta" id="npInfo"></span>
       <div class="pos" id="pos"></div>
       <span class="stage" id="stage">Ready</span>
     </div>
-    <div class="npinfo"><span class="meta" id="npInfo"></span><span class="picks" id="npPicks"></span></div>
     <div class="ctl">
       <button id="prev" aria-label="Previous song">◀︎</button>
       <button id="play" class="primary">Play</button>
@@ -274,7 +279,7 @@ a.btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
       <button id="through" class="toggle" aria-pressed="true" title="Play every song in the act">Play All</button>
     </div>
     <div class="bar" id="bar" role="slider" tabindex="0" aria-label="Position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="soloZone" id="soloZone" hidden></span><i id="fill"></i></div>
-    <p class="note" id="status">Press Play. Songs load as you reach them.</p>
+    <div class="npfoot"><p class="note" id="status">Press Play. Songs load as you reach them.</p><span class="picks" id="npPicks"></span></div>
   </section>
 
   <section class="panel" id="roPanel" aria-label="Running order" hidden>
@@ -461,8 +466,12 @@ function src(buf, when, offset, loop, gain) {
 }
 function stopAll() { sources.forEach(s => { try { s.onended = null; s.stop(); } catch (e) {} try { s.disconnect(); } catch (e) {} }); sources = []; }
 function makeClick(accent) {
-  const sr = ctx.sampleRate, n = Math.round(sr * 0.03), b = ctx.createBuffer(1, n, sr), d = b.getChannelData(0), f = accent ? 1760 : 1175;
-  for (let i = 0; i < n; i++) d[i] = Math.sin(2 * Math.PI * f * i / sr) * 0.5 * Math.exp(-i / (sr * 0.006));
+  // woodblock, like the sets' Count-in track: a hollow tone with an inharmonic overtone and a fast decay
+  const sr = ctx.sampleRate, n = Math.round(sr * 0.12), b = ctx.createBuffer(1, n, sr), d = b.getChannelData(0), f = accent ? 1560 : 1040;
+  for (let i = 0; i < n; i++) {
+    const t = i / sr, body = Math.sin(2 * Math.PI * f * t) * Math.exp(-t / 0.022), ring = 0.35 * Math.sin(2 * Math.PI * f * 2.7 * t) * Math.exp(-t / 0.008);
+    d[i] = 0.55 * Math.min(1, i / (sr * 0.0005)) * (body + ring);
+  }
   return b;
 }
 
@@ -719,7 +728,7 @@ function renderReview() {
     });
     list.append(row);
   });
-  $("rvOpen").textContent = groups.size ? "Script edits (" + groups.size + ")" : "Script edits"; $("rvOpen").classList.toggle("has", groups.size > 0);
+  $("rvOpen").textContent = groups.size ? "Edits (" + groups.size + ")" : "Edits"; $("rvOpen").title = "Script edits"; $("rvOpen").classList.toggle("has", groups.size > 0);
   if (!groups.size) list.append(mk("p", "note", "No open comments in " + ACTS[act].title + "."));
   $("rvUpdate").textContent = TICK.size ? "Update " + TICK.size + (TICK.size === 1 ? " line" : " lines") : "Update";
   $("rvUpdate").disabled = !TICK.size;
@@ -950,26 +959,32 @@ function renderAct() {
   cur = 0; plan = null; dlg = null; OPEN = null; renderViewSel(); renderReview(); renderSongs(); renderNow(); ui();
 }
 let lineEls = [], lastLine = -2, lyrMode = "lyrics";
+// Bars and beats still to play, counted down like the lyrics' bar.beat numbers (12.3 = 12 bars and 3 beats)
+function toGo(sec, spb, meter) {
+  const R = Math.max(1, Math.ceil(sec / spb - 1e-6)), bars = Math.floor((R - 1) / meter);
+  return bars + "." + (R - bars * meter) + " to go";
+}
+const songBars = s => Math.round(s.dur * s.bpm / 60 / s.meter);
 function renderNow() {
   showLoopN();
   const s = SONGS[cur];
   $("npNum").textContent = s.n + " / " + SONGS.length;
   $("npTitle").textContent = s.title;
   const nd = s.dlg.before.length + s.dlg.during.length + s.dlg.after.length, p = makePlan(cur);
-  const info = [s.scene, s.singer, s.meter + "/4", Math.round(s.bpm) + " BPM", fmtT(s.dur)].concat(nd ? [nd + " dialogue lines"] : []).join(" · ");
+  const info = [s.scene, s.singer, s.meter + "/4", Math.round(s.bpm) + " BPM", songBars(s) + " bars"].concat(nd ? [nd + " dialogue lines"] : []).join(" · ");
   // Song + Loop / Loop only: the Loop's length and passes go on the same line as the song info
   const n = what === "loop" ? loopN(cur) : p.forever ? 0 : p.passes;
-  const lp = what === "song" ? "" : "Loop ×" + (n ? n + " " + fmtT(n * s.loopDur) : "∞");
+  const lp = what === "song" ? "" : "Loop " + s.loopBars + " bars ×" + (n || "∞");
   $("npInfo").textContent = "";
   if (lp) { const b = document.createElement("b"); b.textContent = lp; $("npInfo").append(b, " · "); }
-  $("npInfo").append(info); $("npInfo").title = (lp ? "Loop: " + s.loopBars + " bars, " + (n ? n + " passes, " + fmtT(n * s.loopDur) : "until Stop") + " · " : "") + info;
+  $("npInfo").append(info); $("npInfo").title = (lp ? lp + " · " : "") + info;
   renderPicks();
   document.querySelectorAll(".song").forEach((el, i) => el.classList.toggle("cur", i === cur));
   if (lyrMode === "browse") showDialogueBrowse(); else showLyrics();
   const z = $("soloZone");
   if (p.loopOn) { z.hidden = false; z.style.left = (p.dur / p.end * 100) + "%"; z.style.width = ((p.end - p.dur) / p.end * 100) + "%"; } else z.hidden = true;
   $("fill").style.width = "0%";
-  $("pos").innerHTML = "<b>Bar 1 · beat 1</b> · 0:00 / " + fmtT(p.end);
+  $("pos").innerHTML = "<b>Bar 1.1</b> · " + songBars(s) + " bars";
   $("stage").textContent = "Ready"; $("stage").className = "stage";
   if (!$("recPanel").hidden) recLabels();
   midiRender();
@@ -1071,8 +1086,8 @@ function tick() {
   if (rec.state === "recording") { /* recorder draws its own status */ }
   else if (loopMode) {
     const el = ctx.currentTime - loopStart, p = el % s.loopDur, spb = 60 / s.bpm, pass = Math.floor(el / s.loopDur) + 1;
-    $("pos").innerHTML = "<b>Loop · bar " + (Math.floor(p / spb / s.meter) + 1) + " of " + s.loopBars + "</b> · " +
-      (loopPasses ? "pass " + Math.min(pass, loopPasses) + " of " + loopPasses : "repeating");
+    $("pos").innerHTML = "<b>Loop " + (loopPasses ? Math.min(pass, loopPasses) + " of " + loopPasses : pass) + "</b> · " +
+      toGo(loopPasses ? loopPasses * s.loopDur - el : s.loopDur - p, spb, s.meter);
     if (loopPasses) $("fill").style.width = Math.min(100, el / (loopPasses * s.loopDur) * 100) + "%";
     st.textContent = "Loop"; st.className = "stage count";
   } else if (dlg && (phase === "before" || phase === "after")) {
@@ -1085,7 +1100,7 @@ function tick() {
     $("bar").setAttribute("aria-valuenow", String(Math.round(pos / p.end * 100)));
     if (pos < p.dur) {
       const beats = pos / p.spb;
-      $("pos").innerHTML = "<b>Bar " + (Math.floor(beats / s.meter) + 1) + " · beat " + (Math.floor(beats % s.meter) + 1) + "</b> · " + fmtT(pos) + " / " + fmtT(p.end);
+      $("pos").innerHTML = "<b>Bar " + (Math.floor(beats / s.meter) + 1) + "." + (Math.floor(beats % s.meter) + 1) + "</b> · " + toGo(p.dur - pos, p.spb, s.meter);
       st.textContent = playing ? (vocalTake(cur) ? "Song · " + vocalTake(cur).handle : "Song") : "Paused"; st.className = "stage";
       showLine(beats);
       const dl = (p.dl || []).find(d => pos >= d.at && pos < d.end), dt = dl ? dl.txt : "";
@@ -1094,13 +1109,14 @@ function tick() {
     else if (p.loopOn) {
       const pass = Math.floor((pos - p.loopAt) / s.loopDur) + 1;
       st.textContent = playing ? "Loop" + (p.take ? " · " + p.take.handle : "") : "Paused"; st.className = "stage solo";
-      $("pos").innerHTML = "<b>Loop · pass " + (p.forever ? pass + "</b> · repeating" : Math.min(p.passes, pass) + " of " + p.passes + "</b> · " + fmtT(pos) + " / " + fmtT(p.end));
+      $("pos").innerHTML = "<b>Loop " + (p.forever ? pass : Math.min(p.passes, pass) + " of " + p.passes) + "</b> · " +
+        toGo(p.forever ? s.loopDur - ((pos - p.loopAt) % s.loopDur) : p.end - pos, p.spb, s.meter);
     }
   }
   requestAnimationFrame(tick);
 }
 function renderWho() {
-  $("whoBar").textContent = me.handle ? "Signed in as " + me.handle : "";
+  $("whoBar").textContent = me.handle ? "● " + me.handle : ""; $("whoBar").title = me.handle ? "Signed in as " + me.handle : "";
   $("whoSign").hidden = !!me.handle || !BACKEND_URL;
 }
 function renderSongs() {
@@ -1164,7 +1180,7 @@ document.addEventListener("keydown", e => {
   if (rec.state === "recording") return stopRecording();
   $("play").click();
 });
-function showRunningOrder(on) { $("roPanel").hidden = !on; $("roToggle").setAttribute("aria-expanded", String(on)); $("roToggle").textContent = on ? "Hide running order" : "Show running order"; }
+function showRunningOrder(on) { $("roPanel").hidden = !on; $("roToggle").setAttribute("aria-expanded", String(on)); $("roToggle").setAttribute("aria-pressed", String(on)); }
 $("roToggle").onclick = () => showRunningOrder($("roPanel").hidden);
 $("roClose").onclick = () => showRunningOrder(false);
 document.querySelectorAll(".seg button[data-mix]").forEach(b => b.onclick = () => {
