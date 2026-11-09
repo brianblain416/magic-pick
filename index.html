@@ -4,27 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Magic Pick Player</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bowlby+One+SC&family=Karla:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
 :root {
-  --bg: #e9ede9; --panel: #f6f8f5; --ink: #1b2320; --muted: #5a6762; --line: #c9d2cd;
-  --accent: #1d6a86; --accent-ink: #fff; --spot: #f2c14e; --spot-ink: #1b2320; --solo: #8a4fb0; --rec: #c2372f;
-  --robbie: #1d6a86; --melissa: #b0346f; --clive: #9a6b00;
-  --display: "Bowlby One SC", "Arial Black", Impact, sans-serif;
-  --body: "Karla", "Helvetica Neue", Arial, sans-serif;
-  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
-  color-scheme: light;
+  /* Skin: Ableton Live 12 "Angst Robot" theme colors (Brian's Live setup); one dark palette for every system setting */
+  --bg: #2a1e54; --panel: #372c6d; --well: #221746; --ctl: #1a1037; --display-bg: #100826; --hi: #4a4796; --handle: #647cbc;
+  --ink: #e5e6e8; --muted: #acbad3; --line: #060313;
+  --accent: #b5ff63; --accent-ink: #000001; --spot: #b5ff63; --spot-ink: #000001; --play: #00ffb6; --solo: #ffc421; --rec: #ff4235; --sel: #79c9ff;
+  --robbie: #79c9ff; --melissa: #ff94a6; --clive: #ffc421;
+  --display: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", Arial, sans-serif;
+  --body: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", Arial, sans-serif;
+  --mono: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", Arial, sans-serif;
+  color-scheme: dark;
 }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --bg: #111714; --panel: #19211d; --ink: #e6ece8; --muted: #95a49d; --line: #2c3833;
-  --accent: #63b6d3; --accent-ink: #0d1412; --spot: #f0b93f; --spot-ink: #15110a; --solo: #c792ea; --rec: #ff6b5e;
-  --robbie: #63b6d3; --melissa: #f07fb4; --clive: #e2b04a; color-scheme: dark } }
-:root[data-theme="dark"] {
-  --bg: #111714; --panel: #19211d; --ink: #e6ece8; --muted: #95a49d; --line: #2c3833;
-  --accent: #63b6d3; --accent-ink: #0d1412; --spot: #f0b93f; --spot-ink: #15110a; --solo: #c792ea; --rec: #ff6b5e;
-  --robbie: #63b6d3; --melissa: #f07fb4; --clive: #e2b04a; color-scheme: dark }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; } }
+:root[data-theme="dark"] { color-scheme: dark; }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.5; }
 .wrap { max-width: 860px; margin: 0 auto; padding: 12px 16px 56px; display: grid; gap: 10px; }
@@ -233,6 +226,38 @@ a.btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
   .mrow.syn2 .macts { grid-column: 1 / -1; justify-content: flex-start; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+
+/* ---------- Live skin: flat, square, compact, like Live's panels and choosers ---------- */
+body { font-size: 14px; line-height: 1.45; font-variant-numeric: tabular-nums; }
+h1, h2, .tabs button { font-weight: 700; letter-spacing: .01em; }
+.top h1 { font-size: 19px; text-transform: uppercase; letter-spacing: .06em; }
+.nptitle h2 { font-size: 19px; }
+.eyebrow, .sub-h, .rv-where, .cmt .h, .pick span, .npfoot .pick { letter-spacing: .04em; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 3px; }
+.np { background: var(--panel); box-shadow: 0 4px 12px -4px rgba(0,0,0,.6); }
+button, a.btn { background: var(--well); color: var(--ink); border: 1px solid var(--line); border-radius: 2px; }
+button:hover:not(:disabled), a.btn:hover { background: var(--hi); }
+button:disabled { color: #6f6a99; background: var(--well); }
+select, input, textarea { background: var(--ctl); color: var(--ink); border: 1px solid var(--line); border-radius: 2px; }
+.seg { border: 1px solid var(--line); border-radius: 2px; background: var(--well); gap: 1px; }
+.seg button { background: var(--well); }
+.seg button[aria-pressed="true"], button[aria-pressed="true"].toggle, .tabs button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--line); }
+button.primary { background: var(--play); color: #000001; border-color: var(--line); font-weight: 700; }
+button.primary:hover:not(:disabled) { background: #5cffd0; }
+.nphead .pos { background: var(--display-bg); color: var(--muted); padding: 2px 8px; border-radius: 2px; border: 1px solid var(--line); }
+.nphead .pos b { color: var(--accent); }
+.stage { border-radius: 2px; background: var(--display-bg); border-color: var(--line); }
+.stage.solo { background: var(--solo); border-color: var(--solo); color: #000001; }
+.stage.dlg { background: var(--sel); border-color: var(--sel); color: #000001; }
+.bar { height: 8px; border-radius: 1px; background: var(--display-bg); border-color: var(--line); }
+.bar .soloZone { opacity: .35; }
+.meter, .lane { border-radius: 2px; background: var(--display-bg); border-color: var(--line); }
+.line, .song, .cbtn, .tag { border-radius: 2px; }
+.line:not(.now):hover { background: var(--well); }
+.song.cur { background: var(--well); border-color: var(--handle); }
+.cdrawer { background: var(--well); border-radius: 0 2px 2px 0; }
+.lyrics { scrollbar-color: var(--handle) transparent; }
+.rvdlg { background: var(--panel); border: 1px solid var(--line); border-radius: 3px; }
 </style>
 </head>
 <body>
