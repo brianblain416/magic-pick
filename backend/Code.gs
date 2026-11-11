@@ -7,6 +7,9 @@
  *   Devices sheet:  device, email, token, expires, verified, created
  *   Takes sheet:    one row per take
  *   Settings sheet: SALT, ADMIN_EMAILS (comma-separated; can hear every private take)
+ *   Subscribers sheet: Brian's Substack subscriber export (File > Import > Replace current sheet).
+ *                   Only emails marked paid or comp there can sign in and hear the player.
+ *   Allowed sheet:  extra emails let in by hand (column A, one per row), e.g. before the next export.
  *   Comments sheet: one row per comment on a lyric or dialogue line. A "replace" comment
  *                   is a suggested new wording (each person's suggestions form their own
  *                   version); a "note" just stays attached. Brian ticks suggestions
@@ -62,8 +65,13 @@ function doPost(e) {
     const q = JSON.parse(e.postData.contents);
     const me = device_(q.key);            // {email, name} if this device is signed in
     const admin = !!me && isAdmin_(me.email);
+    // The player is for Substack paid (and comp) subscribers only. A signed-in device whose email
+    // has dropped off the list sees the sign-in screen again.
+    const allowed = !!me && (admin || allowed_(me.email));
+    if (['list', 'signin', 'verify', 'signout'].indexOf(q.action) < 0 && !allowed) throw new Error(me ? 'not_subscriber' : 'signed_out');
     switch (q.action) {
-      case 'list': return out_(list_(me, admin));
+      case 'list': return out_(allowed ? list_(me, admin) : { ok: true, locked: true, takes: [], players: [], comments: [],
+        me: me ? { name: me.name, email: me.email } : null, admin: false });
       case 'signin': return out_(signin_(q));
       case 'verify': return out_(verify_(q));
       case 'signout': return out_(signout_(q));
@@ -226,6 +234,7 @@ function signin_(q) {
   const email = String(q.email || '').trim().toLowerCase();
   if (!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(email) || email.length > 120) throw new Error('bad_email');
   const dev = keyHash_(q.key); if (!dev) throw new Error('no_key');
+  if (!isAdmin_(email) && !allowed_(email)) throw new Error('not_subscriber');
   const lock = LockService.getScriptLock(); lock.waitLock(20000);
   let name;
   try { name = player_(email, q.name); } finally { lock.releaseLock(); }
@@ -287,6 +296,48 @@ function player_(email, name) {
   for (let r = 1; r < data.length; r++) if (sameName_(data[r][0], name)) throw new Error('name_taken');
   sh.appendRow([name, email, new Date().toISOString()]);
   return name;
+}
+
+// ---------- who may use the player ----------
+// Subscribers: Substack's CSV export as imported. The email column is the one whose header says "email";
+// a row is let in when a plan/type/status-like column says paid, comp, gift, founding, monthly or annual
+// (or a "paid"/"comp" column is TRUE/yes). Free subscribers are not let in.
+const PAID_RE = /\b(paid|comp|comped|complimentary|gift|gifted|founding|monthly|annual|yearly)\b/i;
+function allowedEmails_() {
+  const cache = CacheService.getScriptCache(), hit = cache.get('allowed');
+  if (hit != null) return hit ? hit.split(',') : [];
+  const set = {}, ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sub = ss.getSheetByName('Subscribers');
+  if (sub && sub.getLastRow() > 1) {
+    const data = sub.getDataRange().getDisplayValues(), head = data[0].map(h => String(h).trim().toLowerCase());
+    const ec = head.findIndex(h => /e-?mail/.test(h) && !/disabled|opens|sent/.test(h));
+    // Substack's export has a "Type" column (Free, Comp, Yearly Subscriber, Monthly Subscriber, Founding Member, Author):
+    // when it's there, only it counts, since "Subscription source (paid)" still says comp after a comp has lapsed to Free.
+    const typeCol = head.indexOf('type');
+    const planCols = typeCol >= 0 ? [typeCol] : head.map((h, i) => /plan|type|tier|status|subscription|paid|comp/.test(h) && i !== ec ? i : -1).filter(i => i >= 0);
+    const flagCols = typeCol >= 0 ? [] : head.map((h, i) => /^(is_?)?(paid|comp|comped)$/.test(h.replace(/[\s?]/g, '')) ? i : -1).filter(i => i >= 0);
+    if (ec >= 0) for (let r = 1; r < data.length; r++) {
+      const em = String(data[r][ec]).trim().toLowerCase(); if (!em) continue;
+      const paid = planCols.some(i => PAID_RE.test(data[r][i])) || flagCols.some(i => /^(true|yes|y|1)$/i.test(String(data[r][i]).trim()));
+      if (paid) set[em] = true;
+    }
+  }
+  const extra = ss.getSheetByName('Allowed');
+  if (extra && extra.getLastRow() > 0) extra.getRange(1, 1, extra.getLastRow(), 1).getDisplayValues()
+    .forEach(r => { const em = String(r[0]).trim().toLowerCase(); if (/@/.test(em)) set[em] = true; });
+  const list = Object.keys(set);
+  try { cache.put('allowed', list.join(','), 300); } catch (e) {}   // a re-import shows up within 5 minutes
+  return list;
+}
+function allowed_(email) { return allowedEmails_().indexOf(String(email || '').trim().toLowerCase()) >= 0; }
+// Run from the editor after importing a new export: logs how many emails are let in and which columns were used.
+function checkSubscribers() {
+  CacheService.getScriptCache().remove('allowed');
+  const sub = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Subscribers');
+  Logger.log('Subscribers columns: ' + (sub ? sub.getRange(1, 1, 1, sub.getLastColumn()).getDisplayValues()[0].join(' | ') : '(no Subscribers sheet)'));
+  const list = allowedEmails_();
+  Logger.log(list.length + ' emails can sign in (plus admins): ' + list.slice(0, 20).join(', ') + (list.length > 20 ? ' …' : ''));
+  return list.length;
 }
 
 // ---------- helpers ----------

@@ -254,13 +254,40 @@ button.primary:hover:not(:disabled) { background: #5cffd0; }
 .meter, .lane { border-radius: 2px; background: var(--display-bg); border-color: var(--line); }
 .line, .song, .cbtn, .tag { border-radius: 2px; }
 .line:not(.now):hover { background: var(--well); }
+/* paid-subscriber sign-in screen: the player stays hidden until the library says this device may use it */
+body.locked > main.wrap { display: none; }
+body:not(.locked) > #gate { display: none; }
+#gate { max-width: 440px; margin: 12vh auto 40px; padding: 24px 20px; display: grid; gap: 14px; background: var(--well); border: 1px solid var(--line); border-radius: 2px; }
+#gate h1 { margin: 0; font-size: 26px; }
+#gate p { margin: 0; }
+#gate label { display: grid; gap: 4px; font-size: 14px; color: var(--muted); }
+#gate input { font: inherit; font-size: 16px; padding: 8px 10px; }
+#gate .gnote:empty { display: none; }
+@media (max-width: 520px) { #gate { margin: 24px 16px; } }
+/* the mode button lights amber (like the LOOP badge) while the Loop is sounding, with a flash as the song rolls into it */
+.seg button[aria-pressed="true"].looping { background: var(--solo); color: #000001; box-shadow: 0 0 10px var(--solo); animation: loopIn .7s ease-out; }
+@keyframes loopIn { 0% { background: #fff; box-shadow: 0 0 22px var(--solo); } 100% { background: var(--solo); box-shadow: 0 0 10px var(--solo); } }
+@media (prefers-reduced-motion: reduce) { .seg button.looping { animation: none; } }
 .song.cur { background: var(--well); border-color: var(--handle); }
 .cdrawer { background: var(--well); border-radius: 0 2px 2px 0; }
 .lyrics { scrollbar-color: var(--handle) transparent; }
 .rvdlg { background: var(--panel); border: 1px solid var(--line); border-radius: 3px; }
 </style>
 </head>
-<body>
+<body class="locked">
+<section id="gate" aria-label="Sign in">
+  <h1>Magic Pick Player</h1>
+  <p id="gIntro">The player is for paid subscribers of Brian's Substack. Sign in with the email address you subscribe with.</p>
+  <label id="gNameBox">Your name, as others will see it (first time only)
+    <input id="gName" maxlength="24" autocomplete="nickname" placeholder="e.g. Bill">
+  </label>
+  <label>Your email
+    <input id="gEmail" type="email" maxlength="120" autocomplete="email" placeholder="you@example.com">
+  </label>
+  <button id="gSend" class="primary">Email me a sign-in link</button>
+  <p class="note gnote" id="gNote">Checking…</p>
+  <p class="note" id="gSub" hidden></p>
+</section>
 <main class="wrap">
   <header class="top">
     <h1>Magic Pick Player</h1>
@@ -516,14 +543,59 @@ async function api(action, body) {
   if (!j.ok) throw new Error(j.error || "failed");
   return j;
 }
+// Only Substack paid (and comp) subscribers may use the player; the library decides, this just shows the gate.
+let gateMeEmail = "";
+function setLocked(on) {
+  const was = document.body.classList.contains("locked");
+  document.body.classList.toggle("locked", on);
+  if (on && !was) stopEverything();
+  if (!on) { stopGateWatch(); return; }
+  gateMeEmail = me.email || "";
+  $("gNote").textContent = gateMeEmail
+    ? gateMeEmail + " isn't on the paid subscriber list. If you've just subscribed (or been given a subscription), it can take a day for Brian to update the list. Or sign in with a different email."
+    : signinWatch || gateWatch ? $("gNote").textContent : "";
+  if (gateMeEmail && !$("gEmail").value) $("gEmail").value = gateMeEmail;
+  if (typeof SUBSTACK_URL === "string" && SUBSTACK_URL) {
+    const a = document.createElement("a"); a.href = SUBSTACK_URL; a.target = "_blank"; a.rel = "noopener"; a.textContent = "Subscribe on Substack";
+    $("gSub").replaceChildren("Not subscribed yet? ", a); $("gSub").hidden = false;
+  }
+}
+let gateWatch = null;
+function stopGateWatch() { if (gateWatch) { clearInterval(gateWatch); gateWatch = null; } }
+$("gSend").onclick = async () => {
+  const name = $("gName").value.trim(), email = $("gEmail").value.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { $("gNote").textContent = "Enter your email address."; return; }
+  $("gSend").disabled = true; $("gNote").textContent = "Sending…";
+  try {
+    if (gateMeEmail) { try { await api("signout"); } catch (e) {} gateMeEmail = ""; }   // switching to another email on this device
+    await api("signin", { name, email });
+    $("gNote").textContent = "Check your email (" + email + ") and open the link on this " + (/Mobi/.test(navigator.userAgent) ? "phone" : "computer") + ". This page will notice when you're signed in.";
+    stopGateWatch(); let n = 0;
+    gateWatch = setInterval(() => { if (++n > 180 || !document.body.classList.contains("locked")) return stopGateWatch(); refreshTakes(); }, 5000);
+  } catch (e) {
+    $("gNote").textContent = {
+      not_subscriber: email + " isn't on the paid subscriber list. Use the email you subscribe to Brian's Substack with, or ask Brian for a subscription.",
+      bad_name: "Enter your name (2–24 letters). It's your first sign-in.",
+      name_taken: "Someone else already uses that name. Pick a slightly different one.",
+      bad_email: "That email address doesn't look right.",
+      mail_quota: "The page has sent too many emails today. Try again tomorrow."
+    }[e.message] || "Couldn't send the email (" + e.message + "). Try again in a moment.";
+  } finally { $("gSend").disabled = false; }
+};
+window.addEventListener("focus", () => { if (gateWatch) refreshTakes(); });
 async function refreshTakes() {
   let remote = [];
   try {
     const j = await api("list"); remote = j.takes || []; PLAYERS = j.players || [];
     me = j.me ? { handle: j.me.name, email: j.me.email } : { handle: "", email: "" }; IS_ADMIN = !!j.admin;
     COMMENTS = j.comments || [];
+    setLocked(!!j.locked);
   }
-  catch (e) { if (e.message !== "no_backend") setStatus("Couldn't reach the takes library. Playback still works."); }
+  catch (e) {
+    if (e.message === "no_backend") setLocked(false);   // local copy with no library: nothing to check against
+    else if (document.body.classList.contains("locked")) $("gNote").textContent = "Couldn't reach the player's server. Check your connection and reload.";
+    else setStatus("Couldn't reach the takes library. Playback still works.");
+  }
   TAKES = LEGACY_TAKES.concat(remote);
   for (const t of TAKES) if (t.handle && !PLAYERS.some(p => p.toLowerCase() === t.handle.toLowerCase())) PLAYERS.push(t.handle);
   PLAYERS.sort((a, b) => a.localeCompare(b));
@@ -1106,8 +1178,12 @@ function rerenderLines() {
   else { const keep = lastLine; showLyrics(true); lastLine = keep; lineEls.forEach((el, i) => { el.classList.toggle("now", i === keep); el.classList.toggle("past", i < keep); }); }
   box.scrollTop = y;
 }
+let loopLit = "";   // which What button is lit for the Loop ("" = none)
 function tick() {
   const s = SONGS[cur], st = $("stage");
+  const lit = rec.state !== "recording" && (loopMode || (playing && plan && plan.loopOn && phase === "song" && posNow() >= plan.loopAt));
+  const litKey = lit ? what : "";
+  if (litKey !== loopLit) { loopLit = litKey; document.querySelectorAll("#what [data-what]").forEach(btn => btn.classList.toggle("looping", btn.dataset.what === litKey)); }
   if (rec.state === "recording") { /* recorder draws its own status */ }
   else if (loopMode) {
     const el = ctx.currentTime - loopStart, p = el % s.loopDur, spb = 60 / s.bpm, pass = Math.floor(el / s.loopDur) + 1;
@@ -1307,7 +1383,7 @@ $("siSend").onclick = async () => {
     stopSigninWatch(); let n = 0;
     signinWatch = setInterval(() => { if (++n > 180 || me.email) return stopSigninWatch(); refreshTakes(); }, 5000);
   } catch (e) {
-    const m = { bad_name: "Enter your name (2–24 letters) — this is your first sign-in.", name_taken: "Someone else already uses that name. Pick a slightly different one.", bad_email: "That email address doesn't look right.", mail_quota: "The page has sent too many emails today. Try again tomorrow." }[e.message];
+    const m = { bad_name: "Enter your name (2–24 letters) — this is your first sign-in.", name_taken: "Someone else already uses that name. Pick a slightly different one.", bad_email: "That email address doesn't look right.", mail_quota: "The page has sent too many emails today. Try again tomorrow.", not_subscriber: "That email isn't on the paid subscriber list." }[e.message];
     $("siNote").textContent = m || "Couldn't send the email (" + e.message + "). Try again in a moment.";
   } finally { $("siSend").disabled = false; }
 };
