@@ -272,6 +272,35 @@ body:not(.locked) > #gate { display: none; }
 .cdrawer { background: var(--well); border-radius: 0 2px 2px 0; }
 .lyrics { scrollbar-color: var(--handle) transparent; }
 .rvdlg { background: var(--panel); border: 1px solid var(--line); border-radius: 3px; }
+/* playlists: each person's choice of takes per song, several at once, each with a name and Monitor on/off */
+.plbar { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
+.plbar .pl { display: flex; align-items: center; gap: 6px; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); min-width: 0; }
+.plbar select { font-size: 14px; padding: 4px 6px; max-width: min(340px, 64vw); text-transform: none; letter-spacing: 0; }
+.plbar button { font-size: 13px; padding: 4px 10px; }
+.plbar .tick { font-size: 13px; }
+#plNote { flex: 1 1 100%; font-size: 12px; }
+#plNote:empty { display: none; }
+.tkbtn { font-size: 13px; padding: 4px 10px; font-weight: 500; white-space: nowrap; max-width: 300px; overflow: hidden; text-overflow: ellipsis; }
+.tkbtn.on { border-color: var(--accent); color: var(--accent); }
+.tklist { display: grid; gap: 4px; min-width: 0; }
+.tkhead { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); padding-top: 4px; }
+.tkrow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 8px; align-items: center; padding: 4px 6px; background: var(--well); border: 1px solid var(--line); border-radius: 2px; }
+.tkrow .tkname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.tkrow .tkname small { color: var(--muted); margin-left: 6px; }
+.tkrow.off .tkname { color: var(--muted); }
+.tkrow input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
+.tkrow button { font-size: 12px; padding: 3px 8px; font-weight: 500; }
+.tkrow button.mon[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.tkrow button.mon[aria-pressed="false"] { color: var(--muted); }
+.song .tkdrawer { grid-column: 1 / -1; padding: 4px 0 2px; }
+#takesPanel { gap: 8px; padding: 10px 14px; }
+@media (max-width: 600px) { .tkrow { grid-template-columns: auto minmax(0, 1fr) auto; } .tkrow .ren { display: none; } .tkrow .tkname { white-space: normal; } }
+/* recording: the running order shrinks to a short strip around the current song so Record is in view */
+body.recmode #roPanel { gap: 6px; padding: 8px 12px; }
+body.recmode #roPanel > .note { display: none; }
+body.recmode #songs { max-height: 104px; overflow-y: auto; scrollbar-color: var(--handle) transparent; }
+body.recmode .song { padding: 4px 8px; }
+body.recmode .song .sub, body.recmode .song .tkdrawer { display: none; }
 </style>
 </head>
 <body class="locked">
@@ -301,6 +330,15 @@ body:not(.locked) > #gate { display: none; }
     <button id="whoSign" class="small" hidden>Sign in</button>
     <button id="rvOpen" class="small" hidden aria-haspopup="dialog" title="Script edits">Edits</button>
   </header>
+  <div class="plbar" id="plBar">
+    <label class="pl">Playlist <select id="plSel" aria-label="Playlist"></select></label>
+    <button id="plNew" title="Start a new playlist of your own">New</button>
+    <button id="plCopy" title="Make your own copy of this playlist to change" hidden>Copy to my own</button>
+    <button id="plRename" hidden>Rename</button>
+    <label class="tick" id="plHideBox" hidden><input type="checkbox" id="plHide"> Hide from others</label>
+    <button id="plDel" class="quiet" hidden>Delete</button>
+    <p class="note" id="plNote"></p>
+  </div>
 
   <section class="panel np" aria-label="Now playing">
     <div class="nphead">
@@ -331,7 +369,7 @@ body:not(.locked) > #gate { display: none; }
       <button id="through" class="toggle" aria-pressed="true" title="Play every song in the act">Play All</button>
     </div>
     <div class="bar" id="bar" role="slider" tabindex="0" aria-label="Position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="soloZone" id="soloZone" hidden></span><i id="fill"></i></div>
-    <div class="npfoot"><p class="note" id="status">Press Play. Songs load as you reach them.</p><span class="picks" id="npPicks"></span></div>
+    <div class="npfoot"><p class="note" id="status">Press Play. Songs load as you reach them.</p><span class="picks" id="npPicks"><button id="npTakes" class="tkbtn" aria-expanded="false" aria-controls="takesPanel">Takes</button></span></div>
   </section>
 
   <section class="panel" id="roPanel" aria-label="Running order" hidden>
@@ -339,7 +377,7 @@ body:not(.locked) > #gate { display: none; }
       <div class="eyebrow" style="flex:1" id="actMeta"></div>
       <button id="roClose" class="small">Hide</button>
     </div>
-    <p class="note">Tap a song to play it. Pick a vocal take to sing along with a cast member instead of the guide vocal, or a guitar take to hear with <b>Song + Loop</b>: the Loop follows the song straight on.</p>
+    <p class="note">Tap a song to play it. Open <b>Takes</b> to tick the vocal and guitar takes your playlist plays: tick more than one and they play together (a vocal take replaces the guide vocal). Guitar takes play with <b>Song + Loop</b>.</p>
     <div class="songs" id="songs"></div>
   </section>
 
@@ -396,6 +434,13 @@ body:not(.locked) > #gate { display: none; }
         </div>
       </div>
     </div>
+  </section>
+  <section class="panel" id="takesPanel" aria-label="Takes for this song" hidden>
+    <div class="row">
+      <div class="eyebrow" style="flex:1" id="takesHead">Takes</div>
+      <button id="takesClose" class="small">Hide</button>
+    </div>
+    <div id="takesBody"></div>
   </section>
   <section class="panel" id="acctPanel" aria-label="Sign in" hidden>
     <div class="row">
@@ -534,7 +579,7 @@ let me = { handle: "", email: "" }; // filled in by the takes library when this 
 let IS_ADMIN = false;
 // A random key kept in this browser. Signing in by email links it to the singer.
 const DEVICE_KEY = store.get("mp_key") || (() => { const k = Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, "0")).join(""); store.set("mp_key", k); return k; })();
-const picks = { vocal: {}, solo: {}, synth: {} }; // key act-song -> take id
+const picks = { synth: {} }; // Syn2 part per song: key act-song -> take id (vocal and guitar takes come from the playlist)
 const key = (a, n) => a + "-" + n;
 async function api(action, body) {
   if (!BACKEND_URL) throw new Error("no_backend");
@@ -589,17 +634,19 @@ async function refreshTakes() {
     const j = await api("list"); remote = j.takes || []; PLAYERS = j.players || [];
     me = j.me ? { handle: j.me.name, email: j.me.email } : { handle: "", email: "" }; IS_ADMIN = !!j.admin;
     COMMENTS = j.comments || [];
+    if (!j.locked) mergePlaylists(j.playlists);
     setLocked(!!j.locked);
   }
   catch (e) {
-    if (e.message === "no_backend") setLocked(false);   // local copy with no library: nothing to check against
+    if (e.message === "no_backend") { setLocked(false); mergePlaylists(undefined); }   // local copy with no library: nothing to check against
     else if (document.body.classList.contains("locked")) $("gNote").textContent = "Couldn't reach the player's server. Check your connection and reload.";
     else setStatus("Couldn't reach the takes library. Playback still works.");
   }
   TAKES = LEGACY_TAKES.concat(remote);
   for (const t of TAKES) if (t.handle && !PLAYERS.some(p => p.toLowerCase() === t.handle.toLowerCase())) PLAYERS.push(t.handle);
   PLAYERS.sort((a, b) => a.localeCompare(b));
-  renderSongs(); renderWho(); fillPlayers(); onComments(); renderSynthTakes();
+  renderPlaylists(); renderSongs(); renderWho(); fillPlayers(); onComments(); renderSynthTakes();
+  if (plan && !playing) renderNow();
 }
 function takesFor(i, kind) { const n = SONGS[i].n; return TAKES.filter(t => String(t.act) === act && t.song === n && t.kind === kind); }
 function takeById(id) { return TAKES.find(t => t.id === id); }
@@ -631,8 +678,178 @@ function loadTake(t) {
   }
   return takeBufs.get(t.id);
 }
-const vocalTake = i => { const id = picks.vocal[key(act, SONGS[i].n)]; return id ? takeById(id) : null; };
-const soloTake = i => { const id = picks.solo[key(act, SONGS[i].n)]; return id ? takeById(id) : null; };
+
+// ---------------- playlists ----------------
+// "Original" plays the show as built (guide vocal, no takes). A playlist is one person's choice of takes per song:
+// any number of vocal and guitar takes can be ticked and they all play together; each has a name and Monitor
+// on/off (off = stays in the playlist but silent, in playback and while recording). The owner edits it; others
+// can play it or copy it. A take someone can't hear (private, or removed) is skipped: the standard track plays.
+let PLAYLISTS = [];          // {id, handle, name, hidden, data: {songs: {"1-03": [{id, mon, name}]}}, mine, updated}
+let PL_LOCAL = !BACKEND_URL; // the library can't store playlists (a local copy, or Code.gs not updated yet): kept in this browser
+let plId = store.get("mp_pl") || "";
+let takesOpen = -1;          // running-order row whose take list is open
+const curPL = () => PLAYLISTS.find(p => p.id === plId) || null;
+const songKey = i => key(act, SONGS[i].n);
+const plEntries = i => { const p = curPL(); return p ? (p.data.songs[songKey(i)] || []) : []; };
+const plEntry = (i, id) => plEntries(i).find(e => e.id === id);
+// the takes that sound for song i: ticked, Monitor on, and audible to this person
+function liveTakes(i, kind) {
+  return plEntries(i).filter(e => e.mon).map(e => takeById(e.id)).filter(t => t && (!kind || t.kind === kind));
+}
+function takeName(t, i) { const e = i != null && plEntry(i, t.id); return e && e.name ? e.name : t.handle; }
+function localPLs() { try { return JSON.parse(store.get("mp_playlists") || "[]"); } catch (e) { return []; } }
+function saveLocalPLs() { store.set("mp_playlists", JSON.stringify(PLAYLISTS.filter(p => p.mine).map(p => ({ id: p.id, handle: p.handle, name: p.name, hidden: p.hidden, data: p.data, mine: true, updated: p.updated })))); }
+function mergePlaylists(remote) {
+  if (remote === undefined) PL_LOCAL = true;
+  const pending = PLAYLISTS.filter(p => p.mine && (p._dirty || p._saving || /^new-/.test(p.id)));
+  let list = PL_LOCAL ? localPLs() : remote.map(p => Object.assign({}, p, { data: { songs: (p.data && p.data.songs) || {} } }));
+  pending.forEach(p => { const k = list.findIndex(x => x.id === p.id); if (k >= 0) list[k] = p; else list.push(p); });
+  PLAYLISTS = list;
+  if (plId && !curPL()) { plId = ""; store.set("mp_pl", ""); }
+}
+function nextPLName() {
+  const base = me.handle || "My playlist", names = PLAYLISTS.filter(p => p.mine).map(p => p.name.toLowerCase());
+  if (!names.includes(base.toLowerCase())) return base;
+  for (let n = 2; ; n++) if (!names.includes((base + " " + n).toLowerCase())) return base + " " + n;
+}
+function newPL(name, songs) {
+  const p = { id: "new-" + Date.now().toString(36), handle: me.handle || "Me", name, hidden: false, data: { songs: songs || {} }, mine: true, updated: new Date().toISOString() };
+  PLAYLISTS.push(p); setPL(p.id); savePL(p); return p;
+}
+// the playlist a change goes into: the one showing if it's yours, or a new one of your own
+function ownPL() {
+  const p = curPL(); if (p && p.mine) return p;
+  const n = newPL(nextPLName(), p ? JSON.parse(JSON.stringify(p.data.songs)) : {});
+  plNote("Made a new playlist of your own, “" + n.name + "”. Rename it any time.");
+  return n;
+}
+let plNoteT = 0;
+function plNote(t) { $("plNote").textContent = t || ""; clearTimeout(plNoteT); if (t) plNoteT = setTimeout(() => { $("plNote").textContent = ""; }, 9000); }
+// Saves shortly after the last change; one save at a time per playlist.
+function savePL(p) {
+  p._dirty = true; p.updated = new Date().toISOString();
+  if (PL_LOCAL) { p._dirty = false; saveLocalPLs(); return; }
+  clearTimeout(p._t); p._t = setTimeout(() => flushPL(p), 700);
+}
+async function flushPL(p) {
+  if (p._saving || !p._dirty) return;
+  p._saving = true; p._dirty = false;
+  try {
+    const j = await api("savePlaylist", { id: /^new-/.test(p.id) ? "" : p.id, name: p.name, hidden: !!p.hidden, data: p.data });
+    if (p.id !== j.id) { if (plId === p.id) { plId = j.id; store.set("mp_pl", j.id); } p.id = j.id; renderPlaylists(); }
+  } catch (e) {
+    if (e.message === "unknown_action") { PL_LOCAL = true; saveLocalPLs(); plNote("The takes library can't store playlists yet, so yours are kept in this browser for now."); }
+    else { p._dirty = true; plNote("Couldn't save the playlist (" + e.message + "). It will try again with your next change."); }
+  } finally { p._saving = false; if (p._dirty && !PL_LOCAL) savePL(p); }
+}
+function setPL(id) {
+  plId = id; store.set("mp_pl", id); takesOpen = -1;
+  renderPlaylists(); onTakesChanged(null);
+}
+function renderPlaylists() {
+  const sel = $("plSel"), p = curPL(); sel.replaceChildren();
+  const opt = (v, t) => { const o = document.createElement("option"); o.value = v; o.textContent = t; return o; };
+  sel.append(opt("", "Original"));
+  const mine = PLAYLISTS.filter(x => x.mine), others = PLAYLISTS.filter(x => !x.mine);
+  const by = (a, b) => a.name.localeCompare(b.name);
+  if (mine.length) { const g = document.createElement("optgroup"); g.label = "Mine"; mine.sort(by).forEach(x => g.append(opt(x.id, x.name + (x.hidden ? " (hidden)" : "")))); sel.append(g); }
+  if (others.length) { const g = document.createElement("optgroup"); g.label = "Everyone's"; others.sort(by).forEach(x => g.append(opt(x.id, x.name + (sameStart(x.name, x.handle) ? "" : " · " + x.handle)))); sel.append(g); }
+  sel.value = p ? p.id : "";
+  const own = !!p && p.mine;
+  $("plRename").hidden = $("plHideBox").hidden = $("plDel").hidden = !own;
+  $("plCopy").hidden = !p || own;
+  $("plHide").checked = own && !!p.hidden;
+  $("plBar").title = PL_LOCAL ? "Playlists are kept in this browser" : "";
+}
+const sameStart = (name, handle) => String(name).toLowerCase().startsWith(String(handle || "").toLowerCase());
+$("plSel").onchange = () => { setPL($("plSel").value); plNote(""); };
+$("plNew").onclick = () => {
+  const name = prompt("Name for the new playlist", nextPLName()); if (name == null) return;
+  newPL(name.trim().slice(0, 40) || nextPLName(), {}); plNote("New playlist. Open Takes on a song to tick the takes it plays.");
+};
+$("plCopy").onclick = () => {
+  const p = curPL(); if (!p) return;
+  newPL(nextPLName(), JSON.parse(JSON.stringify(p.data.songs))); plNote("Copied “" + p.name + "” to a playlist of your own.");
+};
+$("plRename").onclick = () => {
+  const p = curPL(); if (!p || !p.mine) return;
+  const name = prompt("Rename the playlist", p.name); if (name == null || !name.trim()) return;
+  p.name = name.trim().slice(0, 40); savePL(p); renderPlaylists();
+};
+$("plHide").onchange = () => { const p = curPL(); if (!p || !p.mine) return; p.hidden = $("plHide").checked; savePL(p); renderPlaylists(); };
+$("plDel").onclick = async () => {
+  const p = curPL(); if (!p || !p.mine || !confirm("Delete the playlist “" + p.name + "”? The takes themselves stay in the library.")) return;
+  PLAYLISTS = PLAYLISTS.filter(x => x !== p); clearTimeout(p._t);
+  if (PL_LOCAL) saveLocalPLs();
+  else if (!/^new-/.test(p.id)) { try { await api("removePlaylist", { id: p.id }); } catch (e) { plNote("Couldn't delete it (" + e.message + ")."); } }
+  setPL("");
+};
+// Ticking, Monitor and names, for song i
+function editTake(i, id, fn) {
+  if (rec.state === "recording") { plNote("Change takes after you stop recording."); renderSongs(); return; }
+  const p = ownPL(), k = songKey(i), list = p.data.songs[k] || (p.data.songs[k] = []);
+  let e = list.find(x => x.id === id);
+  if (!e) { e = { id, mon: true, name: "" }; list.push(e); }
+  if (fn(e, list) === "drop") list.splice(list.indexOf(e), 1);
+  if (!list.length) delete p.data.songs[k];
+  savePL(p); renderPlaylists(); onTakesChanged(i);
+}
+function onTakesChanged(i) {
+  renderSongs(); renderTakesPanel();
+  if (!$("recPanel").hidden) recLabels();
+  if (i == null || i === cur) {
+    if (loopMode) return playLoop(cur);
+    if (playing && phase === "song" && plan) { const p = posNow(); renderNow(); return start(cur, "song", Math.min(p, makePlan(cur).end - 0.05)); }
+    if (!playing) renderNow();
+  }
+}
+// the take list for one song: Vocal, then Guitar
+function takesList(i) {
+  const box = mk("div", "tklist"), p = curPL(), own = !p || p.mine, s = SONGS[i];
+  [["vocal", "Vocal takes", "No vocal takes yet. Record one, or the guide vocal plays."], ["solo", "Guitar takes", "No guitar takes yet."]].forEach(([kind, head, empty]) => {
+    const takes = takesFor(i, kind);
+    box.append(mk("div", "tkhead", head));
+    if (!takes.length) { box.append(mk("p", "note", empty)); return; }
+    takes.forEach(t => {
+      const e = plEntry(i, t.id), row = mk("div", "tkrow" + (e && !e.mon ? " off" : ""));
+      const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = !!e; cb.disabled = !own;
+      cb.setAttribute("aria-label", "Play " + takeLabel(t));
+      cb.onchange = () => editTake(i, t.id, () => cb.checked ? undefined : "drop");
+      const nm = mk("span", "tkname", e && e.name ? e.name : t.handle);
+      nm.append(mk("small", null, (e && e.name ? t.handle + " · " : "") + takeLabel(t).replace(/^[^·]*· ?/, "")));
+      nm.title = takeLabel(t); nm.onclick = () => { if (own) { cb.checked = !cb.checked; cb.onchange(); } };
+      const ren = mk("button", "ren", "Rename"); ren.disabled = !own || !e;
+      ren.title = e ? "Name this take in your playlist" : "Tick the take first";
+      ren.onclick = () => { const v = prompt("Name for this take in your playlist", (e && e.name) || t.handle); if (v != null) editTake(i, t.id, x => { x.name = v.trim().slice(0, 40); }); };
+      const mon = mk("button", "mon", "Monitor " + (e && !e.mon ? "off" : "on")); mon.disabled = !own || !e;
+      mon.setAttribute("aria-pressed", String(!!e && e.mon));
+      mon.title = "On: you hear this take, in playback and while you record. Off: it stays in the playlist but is silent.";
+      mon.onclick = () => editTake(i, t.id, x => { x.mon = !x.mon; });
+      row.append(cb, nm, ren, mon); box.append(row);
+    });
+  });
+  const gone = plEntries(i).filter(e => !takeById(e.id)).length;
+  if (gone) box.append(mk("p", "note", gone + (gone > 1 ? " takes" : " take") + " in this playlist you can't hear (private or removed): the standard track plays instead."));
+  if (p && !p.mine) box.append(mk("p", "note", "This is " + p.handle + "'s playlist. Use Copy to my own to change it."));
+  else if (!p) box.append(mk("p", "note", "Ticking a take starts a playlist of your own."));
+  return box;
+}
+function takesSummary(i) {
+  const v = liveTakes(i, "vocal"), g = liveTakes(i, "solo"), n = plEntries(i).length;
+  if (!n) return "Takes";
+  const part = (xs, l) => xs.length ? l + ": " + xs.map(t => takeName(t, i)).join(", ") : "";
+  return [part(v, "Vox"), part(g, "Gtr")].filter(String).join(" · ") || n + " muted";
+}
+function renderTakesPanel() {
+  const open = !$("takesPanel").hidden;
+  $("npTakes").textContent = takesSummary(cur); $("npTakes").classList.toggle("on", plEntries(cur).length > 0);
+  $("npTakes").setAttribute("aria-expanded", String(open)); $("npTakes").title = "The takes " + (curPL() ? "“" + curPL().name + "”" : "this playlist") + " plays for " + SONGS[cur].title;
+  if (!open) return;
+  $("takesHead").textContent = "Takes · " + SONGS[cur].title + " · " + (curPL() ? curPL().name : "Original");
+  $("takesBody").replaceChildren(takesList(cur));
+}
+$("npTakes").onclick = () => { $("takesPanel").hidden = !$("takesPanel").hidden; renderTakesPanel(); };
+$("takesClose").onclick = () => { $("takesPanel").hidden = true; renderTakesPanel(); };
 
 // ---------------- comments and script edits ----------------
 // Every lyric and dialogue line has a 💬 button. A comment is either a suggested new wording ("Replace line")
@@ -891,19 +1108,27 @@ const hasDlg = (i, which) => dlgLines(i, which).some(l => l.x);
 function lineSecs(l) { if (!l.x) return 0.8; const w = (l.x[2] + " " + l.x[1]).split(/\s+/).length; return Math.min(9, Math.max(2.4, 1.2 + w * 0.36)); }
 
 function makePlan(i) {
-  const s = SONGS[i], spb = 60 / s.bpm, bar = spb * s.meter, g = soloTake(i), k = g && takeKind(g);
-  // a guitar take plays where it fits: a song take in Full song, any take in Song + Loop
-  const t = what === "song" ? (k === "song" || k === "songloop" ? g : null) : what === "songloop" ? g : null;
-  const p = { i, dur: s.dur, spb, bar, take: t, kind: t ? k : null };
+  const s = SONGS[i], spb = 60 / s.bpm, bar = spb * s.meter;
+  // guitar takes play where they fit: song takes in Full song, any take in Song + Loop; several play together
+  const gs = liveTakes(i, "solo").map(t => ({ t, k: takeKind(t) }))
+    .filter(g => what === "songloop" || (what === "song" && (g.k === "song" || g.k === "songloop")));
+  const p = { i, dur: s.dur, spb, bar, takes: gs, vocals: liveTakes(i, "vocal") };
   p.countAt = p.loopAt = s.dur;   // the songs are cut to roll straight into the Loop
-  p.full = !!t && (k === "song" || k === "songloop");
   if (what === "songloop") {
-    const n = !t || k === "song" ? 0 : Math.max(1, Math.round((k === "songloop" ? t.dur - s.dur : t.dur) / s.loopDur));
+    const n = Math.max(0, ...gs.filter(g => g.k !== "song").map(g => takePasses(g.t, g.k, s)));
     const L = loopN(i);   // no take: the song's Loop setting (until Stop only when not Play All)
     p.loopOn = true; p.forever = !n && !L && !through; p.passes = n || L || 2;
     p.end = s.dur + p.passes * s.loopDur;
   } else p.end = s.dur;
   return p;
+}
+// how many Loop passes a guitar take holds (Loop only, or the Loop part of a Song + Loop take)
+function takePasses(t, k, s) { return Math.max(1, Math.round((k === "songloop" ? t.dur - s.dur : t.dur) / s.loopDur)); }
+// a guitar take's Loop part, starting with the Loop at `when` and going round with it
+function loopLayer(t, buf, k, when, s, from) {
+  const st = (k === "songloop" ? s.dur : 0) + (t.offset || 0), end = Math.min(buf.duration, st + takePasses(t, k, s) * s.loopDur);
+  if (end - st < 0.5) return null;
+  const n = src(buf, when, st + ((from || 0) % (end - st)), true); n.loopStart = st; n.loopEnd = end; return n;
 }
 function stopEverything() { midiStop(false); run++; clearTimeout(timer); stopAll(); playing = false; loopMode = false; }
 
@@ -928,9 +1153,9 @@ function advance(my) {
 
 async function playSong(i, pos, my) {
   audio(); await ctx.resume();
-  const p = makePlan(i), vt = vocalTake(i), m = vt ? "band" : mix;
+  const p = makePlan(i), vts = p.vocals, m = vts.length ? "band" : mix;
   setStatus("Loading " + SONGS[i].title + "…");
-  let song, loopB, takeB, vocB, durB = [];
+  let song, loopB, takeBs, vocBs, durB = [];
   const dAt = dialogueOn && dlgAud(i).duringAt;
   // lines that run past the end of the song: the band vamps on the Loop until they finish
   if (dAt && !p.forever) {
@@ -941,25 +1166,27 @@ async function playSong(i, pos, my) {
     }
   }
   try {
-    [song, loopB, takeB, vocB, durB] = await Promise.all([
+    [song, loopB, takeBs, vocBs, durB] = await Promise.all([
       load(songFile(i, m), SONGS[i].dur),
       p.loopOn ? load(loopFile(i), SONGS[i].loopDur) : null,
-      p.take ? loadTake(p.take) : null,
-      vt ? loadTake(vt) : null,
+      Promise.all(p.takes.map(g => loadTake(g.t))),
+      Promise.all(vts.map(loadTake)),
       dAt ? Promise.all(dAt.map((_, k) => load(dlgFile(i, "during", k)).catch(() => null))) : []]);
   } catch (e) { if (my === run) { setStatus("Couldn't load " + SONGS[i].title + ". Check your connection and press Play again."); playing = false; ui(); } return; }
   if (my !== run) return;
   showLyrics();
   const t0 = ctx.currentTime + 0.08, st = t0 - pos;
   if (pos < p.dur) src(song, t0, pos);
-  if (vocB && pos < p.dur) src(vocB, t0, pos + (vt.offset || 0));
+  if (pos < p.dur) vocBs.forEach((b, j) => { const o = pos + (vts[j].offset || 0); if (o < b.duration) src(b, t0, o).stop(st + p.dur + 0.5); });
   const into = Math.max(0, pos - p.loopAt), at = Math.max(st + p.loopAt, t0);
   if (p.loopOn && (p.forever || pos < p.end)) { const l = src(loopB, at, into % SONGS[i].loopDur, true); if (!p.forever) l.stop(st + p.end); }
-  if (p.take) {
-    const off = p.take.offset || 0;
-    if (p.full) { if (pos + off < takeB.duration) src(takeB, t0, pos + off); }
-    else if (into + off < takeB.duration) src(takeB, at, into + off);
-  }
+  p.takes.forEach((g, j) => {
+    const b = takeBs[j], off = g.t.offset || 0; let n = null;
+    if (g.k === "loop") { if (p.forever || into + off < b.duration) n = p.forever ? loopLayer(g.t, b, g.k, at, SONGS[i], into) : src(b, at, into + off); }
+    else if (p.forever && g.k === "songloop" && pos >= p.loopAt) n = loopLayer(g.t, b, g.k, at, SONGS[i], into);
+    else if (pos + off < b.duration) n = src(b, t0, pos + off);
+    if (n && !p.forever) n.stop(st + (p.loopOn ? p.end : p.dur + 0.5));
+  });
   p.dl = [];
   if (dAt) dAt.forEach((at, k) => {
     const b = durB[k], x = SONGS[i].dlg.during[k]; if (!b || !x) return;
@@ -1018,14 +1245,14 @@ function resume() {
 async function playLoop(i) {
   i = i == null ? cur : i; stopEverything(); audio(); await ctx.resume(); const my = run;
   if (i !== cur) { cur = i; renderNow(); }
-  const s = SONGS[i], g = soloTake(i), k = g && takeKind(g);
+  const s = SONGS[i], gs = liveTakes(i, "solo").map(t => ({ t, k: takeKind(t) })).filter(g => g.k === "loop" || g.k === "songloop");
   try {
-    const [b, tb] = await Promise.all([load(loopFile(i), s.loopDur), k === "loop" || k === "songloop" ? loadTake(g) : null]);
+    const [b, tbs] = await Promise.all([load(loopFile(i), s.loopDur), Promise.all(gs.map(g => loadTake(g.t)))]);
     if (my !== run) return; loopStart = ctx.currentTime + 0.05; const lp = src(b, loopStart, 0, true);
-    const tk = tb ? src(tb, loopStart, (k === "songloop" ? s.dur : 0) + (g.offset || 0)) : null;
+    const tks = gs.map((g, j) => loopLayer(g.t, tbs[j], g.k, loopStart, s)).filter(Boolean);
     loopPasses = loopN(i);
     if (loopPasses) {   // x2 / x4 / x8: stop after that many passes; with Play All, the next song's Loop follows
-      const end = loopStart + loopPasses * s.loopDur; lp.stop(end); if (tk) tk.stop(end);
+      const end = loopStart + loopPasses * s.loopDur; lp.stop(end); tks.forEach(n => n.stop(end));
       timer = setTimeout(() => {
         if (my !== run) return;
         if (through && i + 1 < SONGS.length) return playLoop(i + 1);
@@ -1075,8 +1302,9 @@ function renderNow() {
   $("npInfo").textContent = "";
   if (lp) { const b = document.createElement("b"); b.textContent = lp; $("npInfo").append(b, " · "); }
   $("npInfo").append(info); $("npInfo").title = (lp ? lp + " · " : "") + info;
-  renderPicks();
+  renderTakesPanel();
   document.querySelectorAll(".song").forEach((el, i) => el.classList.toggle("cur", i === cur));
+  if (document.body.classList.contains("recmode")) roToCurrent();
   if (lyrMode === "browse") showDialogueBrowse(); else showLyrics();
   const z = $("soloZone");
   if (p.loopOn) { z.hidden = false; z.style.left = (p.dur / p.end * 100) + "%"; z.style.width = ((p.end - p.dur) / p.end * 100) + "%"; } else z.hidden = true;
@@ -1202,14 +1430,14 @@ function tick() {
     if (pos < p.dur) {
       const beats = pos / p.spb;
       $("pos").innerHTML = "<b>Bar " + (Math.floor(beats / s.meter) + 1) + "." + (Math.floor(beats % s.meter) + 1) + "</b> · " + toGo(p.dur - pos, p.spb, s.meter);
-      st.textContent = playing ? (vocalTake(cur) ? "Song · " + vocalTake(cur).handle : "Song") : "Paused"; st.className = "stage";
+      st.textContent = playing ? (p.vocals && p.vocals.length ? "Song · " + p.vocals.map(t => takeName(t, cur)).join(" + ") : "Song") : "Paused"; st.className = "stage";
       showLine(beats);
       const dl = (p.dl || []).find(d => pos >= d.at && pos < d.end), dt = dl ? dl.txt : "";
       if (dt !== p.dlShown) { p.dlShown = dt; setStatus(dt); }
     }
     else if (p.loopOn) {
       const pass = Math.floor((pos - p.loopAt) / s.loopDur) + 1;
-      st.textContent = playing ? "Loop" + (p.take ? " · " + p.take.handle : "") : "Paused"; st.className = "stage solo";
+      st.textContent = playing ? "Loop" + (p.takes.length ? " · " + p.takes.map(g => takeName(g.t, cur)).join(" + ") : "") : "Paused"; st.className = "stage solo";
       $("pos").innerHTML = "<b>Loop " + (p.forever ? pass : Math.min(p.passes, pass) + " of " + p.passes) + "</b> · " +
         toGo(p.forever ? s.loopDur - ((pos - p.loopAt) % s.loopDur) : p.end - pos, p.spb, s.meter);
     }
@@ -1228,29 +1456,21 @@ function renderSongs() {
     const name = document.createElement("button"); name.className = "name"; name.textContent = s.title; name.onclick = () => start(i, "before", 0);
     const nd = (s.dlg.before.length + s.dlg.during.length + s.dlg.after.length);
     const sub = document.createElement("span"); sub.className = "sub"; sub.textContent = s.singer + " · " + s.meter + "/4 · " + Math.round(s.bpm) + " BPM · " + fmtT(s.dur) + (nd ? " · " + nd + " dialogue lines" : "");
-    const picksEl = document.createElement("div"); picksEl.className = "picks"; picksEl.append(...pickEls(i));
-    row.append(num, name, sub, picksEl); box.append(row);
+    const picksEl = document.createElement("div"); picksEl.className = "picks";
+    const nt = takesFor(i, "vocal").length + takesFor(i, "solo").length;
+    const tb = mk("button", "tkbtn" + (plEntries(i).length ? " on" : ""), nt || plEntries(i).length ? takesSummary(i) + (plEntries(i).length ? "" : " (" + nt + ")") : "No takes");
+    tb.disabled = !nt && !plEntries(i).length; tb.setAttribute("aria-expanded", String(takesOpen === i));
+    tb.onclick = () => { takesOpen = takesOpen === i ? -1 : i; renderSongs(); };
+    picksEl.append(tb);
+    row.append(num, name, sub, picksEl);
+    if (takesOpen === i) { const d = mk("div", "tkdrawer"); d.append(takesList(i)); row.append(d); }
+    box.append(row);
   });
-  renderPicks();
+  renderTakesPanel();
+  if (document.body.classList.contains("recmode")) roToCurrent();
 }
-function renderPicks() { $("npPicks").replaceChildren(...pickEls(cur)); }
-// the vocal-take and solo selects for one song
-function pickEls(i) {
-  const s = SONGS[i];
-  return [["vocal", "Vocal", "Guide vocal", "No vocal takes"], ["solo", "Guitar", "None", "No guitar takes"]].map(([kind, lab, none, empty]) => {
-    const takes = takesFor(i, kind), box2 = document.createElement("label"); box2.className = "pick";
-    const l = document.createElement("span"); l.textContent = lab;
-    const sel = document.createElement("select");
-    const o0 = document.createElement("option"); o0.value = ""; o0.textContent = takes.length ? none : empty; sel.append(o0);
-    takes.forEach(t => { const o = document.createElement("option"); o.value = t.id; o.textContent = takeLabel(t); sel.append(o); });
-    sel.value = picks[kind][key(act, s.n)] || ""; sel.disabled = !takes.length;
-    sel.onchange = () => {
-      picks[kind][key(act, s.n)] = sel.value; renderSongs();
-      if (i === cur) { const was = playing && phase === "song", p = posNow(); renderNow(); if (was && p < s.dur) start(i, "song", p); }
-    };
-    box2.append(l, sel); return box2;
-  });
-}
+// recording: keep the current song in view in the shrunken running order
+function roToCurrent() { const box = $("songs"), el = box.children[cur]; if (el) box.scrollTop = el.offsetTop - box.offsetTop - 4; }
 
 // ---------------- controls ----------------
 $("play").onclick = () => { if (rec.state !== "idle") return; if (loopMode) { stopEverything(); ui(); return; } if (playing) return pause(); resume(); };
@@ -1408,6 +1628,7 @@ function recLabels() {
     : (rec.gm === "song" ? "The song plays from the count-in and recording stops at its end; your take is the whole song."
       : (rec.gm === "songloop" ? "The song, then the Loop straight on until Stop." : "Two bars of click, then the Loop until Stop.")
         + " Your take keeps the last two complete passes.") + " Guitar into the instrument input, with direct monitoring.";
+  if (rec.kind !== "synth") $("recNote").textContent += alongText(cur);
   gtrUI();
 }
 // guitar: Full song (stops at the song's end), Song + Loop, or Loop only
@@ -1501,11 +1722,12 @@ $("recGo").onclick = async () => {
   try { await openInput(); } catch (e) { $("recNote").textContent = "The browser couldn't open your microphone. Allow microphone access for this page and try again."; return; }
   const i = cur, s = SONGS[i], my = ++run; stopAll();
   rec.i = i; rec.act = act; rec.chunks = []; rec.take = null;
-  let bed;
+  let bed, along;
   const gm = rec.kind === "solo" ? rec.gm : null, full = gm === "song" || gm === "songloop"; let song = null; rec.full = full; rec.gmAt = gm;
   try {
     bed = rec.kind !== "solo" ? await load(songFile(i, "band"), s.dur) : await load(loopFile(i), s.loopDur);
-    if (full) song = await load(songFile(i, mix), s.dur);
+    if (full) song = await load(songFile(i, liveTakes(i, "vocal").length ? "band" : mix), s.dur);
+    along = await alongBufs(i);
   } catch (e) { $("recNote").textContent = "Couldn't load the backing track. Check your connection."; return; }
   const spb = 60 / s.bpm, bar = spb * s.meter, t0 = ctx.currentTime + 0.4;
   rec.cap = capture(c => { rec.chunks.push(c); meterFrom(rec.chunks); if (rec.kind === "solo" && rec.chunks.length % 32 === 0) pruneLoopChunks(s.loopDur); });
@@ -1516,6 +1738,7 @@ $("recGo").onclick = async () => {
     rec.loopT = t0 + s.dur; src(bed, rec.loopT, 0, true);
   }
   else { for (let k = 0; k < 2 * s.meter; k++) src(makeClick(k % s.meter === 0), t0 + k * spb, 0); rec.t0 = t0 + 2 * bar; rec.loopT = rec.t0; src(bed, rec.t0, 0, true); }
+  playAlong(i, along, rec.kind !== "solo" || gm === "song" || full ? rec.t0 : null, rec.kind === "solo" && gm !== "song" ? rec.loopT : null);
   if (rec.kind === "solo" && gm !== "song" && rec.limit) rec.autoStop = setTimeout(stopRecording, (rec.loopT + rec.limit * s.loopDur + 0.6 - ctx.currentTime) * 1000);
   gtrUI();
   rec.state = "recording"; $("recGo").textContent = "Stop"; $("recGo").classList.add("on");
@@ -1527,6 +1750,25 @@ $("recGo").onclick = async () => {
     $("pos").innerHTML = "<b>Recording</b> · " + fmtT(t) + what;
   }, 200);
 };
+// Overdubbing: the playlist's takes with Monitor on play along while you record and when you listen back.
+async function alongBufs(i) {
+  const ts = liveTakes(i).filter(t => t.kind === "vocal" || t.kind === "solo");
+  const bufs = await Promise.all(ts.map(t => loadTake(t).catch(() => null)));
+  return ts.map((t, j) => ({ t, k: t.kind === "solo" ? takeKind(t) : "song", b: bufs[j] })).filter(x => x.b);
+}
+// songAt: when the song starts (null = no song playing); loopAt: when the Loop starts (null = no Loop)
+function playAlong(i, along, songAt, loopAt) {
+  const s = SONGS[i];
+  (along || []).forEach(({ t, k, b }) => {
+    // a Song + Loop take plays its song part, then its Loop passes go round with the Loop (same buffer, no seam)
+    if (songAt != null && k !== "loop") src(b, songAt, t.offset || 0).stop(songAt + s.dur + (loopAt != null && k === "songloop" ? 0 : 0.5));
+    if (loopAt != null && k !== "song") loopLayer(t, b, k, loopAt, s);
+  });
+}
+function alongText(i) {
+  const ts = liveTakes(i).filter(t => t.kind === "vocal" || t.kind === "solo");
+  return ts.length ? " Playing along (Monitor on): " + ts.map(t => takeName(t, i) + (t.kind === "vocal" ? " vocal" : " guitar")).join(", ") + "." : "";
+}
 function stopRecording() {
   if (rec.state !== "recording") return;
   clearTimeout(rec.autoStop); clearInterval(rec.ticker);
@@ -1559,13 +1801,18 @@ $("recListen").onclick = async () => {
   if (!rec.take) return; stopAll(); const s = SONGS[rec.i];
   if ($("recListen").textContent === "Stop") { $("recListen").textContent = "Listen back"; return; }
   const t0 = ctx.currentTime + 0.1;
-  if (rec.kind !== "solo" || rec.gmAt === "song") { src(await load(songFile(rec.i, rec.kind === "solo" ? mix : "band"), s.dur), t0, 0); }
+  const along = await alongBufs(rec.i), gmix = along.some(x => x.t.kind === "vocal") ? "band" : mix;
+  if (rec.kind !== "solo" || rec.gmAt === "song") { src(await load(songFile(rec.i, rec.kind === "solo" ? gmix : "band"), s.dur), t0, 0); playAlong(rec.i, along, t0, null); }
   else if (rec.full) {
     const loopAt = s.dur, passes = Math.max(1, Math.round((rec.take.dur - loopAt) / s.loopDur));
-    src(await load(songFile(rec.i, mix), s.dur), t0, 0);
+    src(await load(songFile(rec.i, gmix), s.dur), t0, 0);
     const l = src(await load(loopFile(rec.i), s.loopDur), t0 + loopAt, 0, true); l.stop(t0 + loopAt + passes * s.loopDur);
+    const k0 = sources.length; playAlong(rec.i, along, t0, t0 + loopAt); sources.slice(k0).forEach(n => { try { n.stop(t0 + loopAt + passes * s.loopDur); } catch (e) {} });
   }
-  else { const l = src(await load(loopFile(rec.i), s.loopDur), t0, 0, true); l.stop(t0 + Math.max(1, Math.round(rec.take.dur / s.loopDur)) * s.loopDur); }
+  else {
+    const end = t0 + Math.max(1, Math.round(rec.take.dur / s.loopDur)) * s.loopDur, l = src(await load(loopFile(rec.i), s.loopDur), t0, 0, true); l.stop(end);
+    const k0 = sources.length; playAlong(rec.i, along, null, t0); sources.slice(k0).forEach(n => { try { n.stop(end); } catch (e) {} });
+  }
   const n = src(rec.take.buf, t0, rec.take.offset);
   $("recListen").textContent = "Stop"; n.onended = () => { $("recListen").textContent = "Listen back"; };
 };
@@ -1587,8 +1834,11 @@ $("recSave").onclick = async () => {
     takeBufs.set(j.id, Promise.resolve(rec.take.buf));
     rec.take = null; rec.state = "idle"; ["recListen", "recSave", "recDiscard"].forEach(id => $(id).disabled = true);
     await refreshTakes();
-    picks[rec.kind][key(rec.act, s.n)] = j.id; renderSongs(); renderSynthTakes();
-    $("recNote").textContent = "Saved. It's selected in the running order" + ($("recPrivacy").value === "private" ? " and only you and Brian can hear it." : ".");
+    let where = "";
+    if (rec.kind === "synth") picks.synth[key(rec.act, s.n)] = j.id;
+    else if (rec.act === act) { editTake(rec.i, j.id, () => {}); where = " and ticked in your playlist “" + curPL().name + "”"; }
+    renderSongs(); renderSynthTakes();
+    $("recNote").textContent = "Saved" + where + (where ? ", so the next take you record plays along with it" : "") + "." + ($("recPrivacy").value === "private" ? " Only you and Brian can hear it." : "");
   } catch (e) {
     $("recSave").disabled = false;
     $("recNote").textContent = "Couldn't save the take (" + e.message + "). Try again in a moment.";
@@ -1881,8 +2131,17 @@ function setMidiShown(on, scroll) {
 if (store.get("mp_midi") === "1") { $("midiPanel").hidden = false; $("recArea").hidden = false; $("recToggle").setAttribute("aria-pressed", "true"); markRec("midi"); }
 window.addEventListener("resize", () => { clearTimeout(M.rz); M.rz = setTimeout(() => { if (M.lanesData) { MTRACKS.filter(tr => !tr.audio && !tr.take).forEach(tr => drawLane(M.lanes[tr.id], tr, M.lanesData)); drawSynth(); drawBand(); } }, 200); });
 
+// While the recording strip is open the running order shrinks to a short strip, so Record is in view.
+function syncRecMode() {
+  const on = !$("recArea").hidden, was = document.body.classList.contains("recmode");
+  document.body.classList.toggle("recmode", on);
+  if (on && !was) { takesOpen = -1; renderSongs(); requestAnimationFrame(() => { roToCurrent(); $("recArea").scrollIntoView({ behavior: "smooth", block: "nearest" }); }); }
+  else if (!on && was) renderSongs();
+}
+new MutationObserver(syncRecMode).observe($("recArea"), { attributes: true, attributeFilter: ["hidden"] });
+
 // ---------------- start ----------------
-renderAct(); renderWho(); setStatus("Press Play. Songs load as you reach them.");
+renderAct(); syncRecMode(); if (PL_LOCAL) mergePlaylists(undefined); renderPlaylists(); renderWho(); setStatus("Press Play. Songs load as you reach them.");
 if (SIGNIN_TOKEN) finishSignin(); else refreshTakes();
 </script>
 </body>

@@ -6,6 +6,9 @@
  *   Players sheet:  name, email, created           (one row per singer)
  *   Devices sheet:  device, email, token, expires, verified, created
  *   Takes sheet:    one row per take
+ *   Playlists sheet: one row per playlist. Each person makes their own: per song, the vocal and guitar
+ *                   takes it plays (more than one can be ticked), each with a name and Monitor on/off.
+ *                   A hidden playlist is seen only by its owner. Removed playlists are marked removed.
  *   Settings sheet: SALT, ADMIN_EMAILS (comma-separated; can hear every private take)
  *   Subscribers sheet: Brian's Substack subscriber export (File > Import > Replace current sheet).
  *                   Only emails marked paid or comp there can sign in and hear the player.
@@ -37,12 +40,14 @@ const MAX_BYTES = 30 * 1024 * 1024;
 const LINK_MINUTES = 60;
 const COM_COLS = ['id', 'act', 'song', 'part', 'idx', 'kind', 'text', 'dir', 'original', 'origDir', 'handle', 'owner', 'created', 'status', 'appliedAt', 'appliedBy'];
 const PARTS = ['lyrics', 'before', 'during', 'after'];
+const PL_COLS = ['id', 'owner', 'handle', 'name', 'hidden', 'data', 'created', 'updated', 'removed'];
 
 function setup() {
   sheet_('Players', ['name', 'email', 'created']);
   sheet_('Devices', DEV_COLS);
   sheet_('Takes', TAKE_COLS);
   comSheet_();
+  plSheet_();
   const st = sheet_('Settings', ['key', 'value']);
   if (!setting_('SALT')) st.appendRow(['SALT', Utilities.getUuid()]);
   if (!setting_('ADMIN_EMAILS')) st.appendRow(['ADMIN_EMAILS', Session.getEffectiveUser().getEmail()]);
@@ -82,6 +87,8 @@ function doPost(e) {
       case 'comment': return out_(comment_(q, me));
       case 'uncomment': return out_(uncomment_(q, me, admin));
       case 'applyEdits': return out_(applyEdits_(q, me, admin));
+      case 'savePlaylist': return out_(savePlaylist_(q, me));
+      case 'removePlaylist': return out_(removePlaylist_(q, me, admin));
       default: return out_({ ok: false, error: 'unknown_action' });
     }
   } catch (err) {
@@ -96,8 +103,77 @@ function list_(me, admin) {
   const players = rows_('Players', ['name', 'email', 'created']).map(p => p.name).filter(String).sort();
   const comments = comments_().filter(c => c.status !== 'removed')
     .map(c => Object.assign(publicComment_(c), { mine: !!me && c.owner === me.email }));
-  return { ok: true, takes, players, comments, me: me ? { name: me.name, email: me.email } : null, admin };
+  const playlists = rows_('Playlists', PL_COLS).filter(p => !truthy_(p.removed) && (!truthy_(p.hidden) || (me && p.owner === me.email)))
+    .map(p => publicPlaylist_(p, me));
+  return { ok: true, takes, players, comments, playlists, me: me ? { name: me.name, email: me.email } : null, admin };
 }
+
+// ---------- playlists ----------
+// savePlaylist: {id?, name, hidden, data: {songs: {"1-03": [{id, mon, name}], ...}}}. No id = a new playlist.
+function savePlaylist_(q, me) {
+  if (!me) throw new Error('signed_out');
+  const name = clean_(q.name, 40); if (!name) throw new Error('bad_name');
+  const data = JSON.stringify(cleanPlaylist_(q.data));
+  if (data.length > 40000) throw new Error('too_big');
+  const now = new Date().toISOString(), hidden = q.hidden ? 'TRUE' : 'FALSE';
+  const lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    const sh = plSheet_(), rows = sh.getDataRange().getValues();
+    const put = (r, row) => sh.getRange(r, 1, 1, row.length).setRichTextValues([row.map(v => SpreadsheetApp.newRichTextValue().setText(String(v)).build())]);
+    if (q.id) {
+      for (let r = 1; r < rows.length; r++) {
+        const p = toObj_(rows[r], PL_COLS);
+        if (p.id !== q.id || truthy_(p.removed)) continue;
+        if (p.owner !== me.email) throw new Error('not_yours');
+        put(r + 1, [p.id, p.owner, me.name, name, hidden, data, p.created, now, 'FALSE']);
+        return { ok: true, id: p.id, updated: now };
+      }
+      throw new Error('not_found');
+    }
+    const id = Utilities.getUuid();
+    put(sh.getLastRow() + 1, [id, me.email, me.name, name, hidden, data, now, now, 'FALSE']);
+    return { ok: true, id, updated: now };
+  } finally { lock.releaseLock(); }
+}
+function removePlaylist_(q, me, admin) {
+  if (!me) throw new Error('signed_out');
+  const sh = plSheet_(), rows = sh.getDataRange().getValues();
+  for (let r = 1; r < rows.length; r++) {
+    const p = toObj_(rows[r], PL_COLS);
+    if (p.id !== q.id) continue;
+    if (!admin && p.owner !== me.email) throw new Error('not_yours');
+    sh.getRange(r + 1, PL_COLS.indexOf('removed') + 1).setValue('TRUE');
+    return { ok: true };
+  }
+  throw new Error('not_found');
+}
+// Keeps only what the player uses: song keys like "1-03", up to 12 takes each with an id, Monitor and a name.
+function cleanPlaylist_(d) {
+  const songs = {}, src = d && typeof d === 'object' && d.songs && typeof d.songs === 'object' ? d.songs : {};
+  Object.keys(src).slice(0, 80).forEach(k => {
+    if (!/^[12]-\d{2}$/.test(k) || !Array.isArray(src[k])) return;
+    const takes = src[k].filter(t => t && /^[\w-]{1,64}$/.test(String(t.id))).slice(0, 12)
+      .map(t => ({ id: String(t.id), mon: t.mon !== false, name: clean_(t.name, 40) }));
+    if (takes.length) songs[k] = takes;
+  });
+  return { songs };
+}
+function publicPlaylist_(p, me) {
+  let data = { songs: {} }; try { data = JSON.parse(p.data); } catch (e) {}
+  const iso = v => v instanceof Date ? v.toISOString() : String(v || '');
+  return { id: p.id, handle: p.handle, name: String(p.name), hidden: truthy_(p.hidden), data, updated: iso(p.updated), mine: !!me && p.owner === me.email };
+}
+function plSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName('Playlists');
+  if (!sh) {
+    sh = ss.insertSheet('Playlists');
+    sh.getRange(1, 1, 1, PL_COLS.length).setValues([PL_COLS]); sh.setFrozenRows(1);
+    sh.getRange(1, 1, sh.getMaxRows(), PL_COLS.length).setNumberFormat('@');
+  }
+  return sh;
+}
+function truthy_(v) { return v === true || String(v).toUpperCase() === 'TRUE'; }
 
 // ---------- comments on lyric and dialogue lines ----------
 // comment: {act, song, part, idx, kind: 'replace'|'note', text, dir, original, origDir}
