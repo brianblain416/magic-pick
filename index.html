@@ -255,8 +255,32 @@ button.primary:hover:not(:disabled) { background: #5cffd0; }
 .line, .song, .cbtn, .tag { border-radius: 2px; }
 .line:not(.now):hover { background: var(--well); }
 /* paid-subscriber sign-in screen: the player stays hidden until the library says this device may use it */
-body.locked > main.wrap { display: none; }
-body:not(.locked) > #gate { display: none; }
+body.locked:not(.listen) > main.wrap { display: none; }
+body:not(.locked) > #gate, body.listen > #gate { display: none; }
+/* landing: the first page for anyone who isn't a signed-in member; Play takes them into the pared-down listening player */
+#landing { display: none; }
+body.landing > #landing { display: grid; }
+body.landing > #gate, body.landing > main.wrap { display: none !important; }
+#landing { max-width: 600px; margin: 6vh auto 40px; padding: 0 16px; gap: 12px; }
+#landing .lpEye { margin: 0; font-size: 13px; letter-spacing: .08em; color: var(--muted); }
+#landing h1 { margin: 0; font-size: clamp(34px, 8vw, 48px); }
+#landing .lpTag { margin: 0; font-size: 18px; color: var(--accent); line-height: 1.4; }
+#landing .lpBlurb { margin: 0; color: var(--ink); }
+#landing .lpBtns { display: grid; gap: 10px; margin-top: 8px; }
+#landing .lpBtn { display: grid; gap: 2px; text-align: left; padding: 14px 18px; border-radius: 10px; }
+#landing .lpBtn b { font-size: 19px; }
+#landing .lpBtn span { font-size: 14px; color: var(--muted); }
+#landing .lpBtn.primary span { color: inherit; opacity: .8; }
+#landing .lpSign { margin: 6px 0 0; }
+#landing .lpSign a, #landing .lpFoot a { color: var(--accent); }
+#landing .lpFoot { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 18px 0 0; font-size: 14px; }
+/* listening player: just play, the running order and the lyrics */
+#lsBack { display: none; }
+body.listen #lsBack { display: inline-block; }
+body.listen #plBar, body.listen #recToggle, body.listen #whoBar, body.listen #whoSign, body.listen #rvOpen,
+body.listen #what, body.listen .seg:has(> [data-mix]), body.listen #through, body.listen .ctl .sep, body.listen #npPicks,
+body.listen .song .picks, body.listen .song .tkdrawer, body.listen #roPanel > .note, body.listen #recArea,
+body.listen #takesPanel, body.listen #acctPanel, body.listen #midiPanel { display: none !important; }
 #gate { max-width: 440px; margin: 12vh auto 40px; padding: 24px 20px; display: grid; gap: 14px; background: var(--well); border: 1px solid var(--line); border-radius: 2px; }
 #gate h1 { margin: 0; font-size: 26px; }
 #gate p { margin: 0; }
@@ -303,7 +327,22 @@ body.recmode .song { padding: 4px 8px; }
 body.recmode .song .sub, body.recmode .song .tkdrawer { display: none; }
 </style>
 </head>
-<body class="locked">
+<body class="locked landing">
+<script>try { if (localStorage.getItem("mp_member") === "1" && !/[?&]listen\b/.test(location.search) || /[?&](gate|signin)\b/.test(location.search)) document.body.classList.remove("landing"); } catch (e) {}</script>
+<section id="landing" aria-label="The Magic Pick">
+  <p class="lpEye">A 70s STONER ROCK MUSICAL, REVIVED</p>
+  <h1>The Magic Pick</h1>
+  <p class="lpTag">A musical that amazingly foreshadowed the impact of AI on music today.</p>
+  <p class="lpBlurb">In this “guitar musical” the three principals play guitar and trade solos as well as singing, acting and even dancing.</p>
+  <p class="lpBlurb">It opens with Robbie, forlorn and drunk, bemoaning his fate playing in a cover band at a run-down Toronto club and yearning for the wife and kid he left behind in Nova Scotia. She appears backstage with a burned-out, eccentric-looking veteran guitarist who wants to pass along the “Magic Pick”, a device that adds a lot of pyrotechnics (sound and visuals) to a guitar performance.</p>
+  <p class="lpBlurb">As he plays his way through rock, folk, blues, even moments of disco and classical, Robbie ultimately realizes that he just wants to restore his marriage and get back to playing country music. He is last seen playing in a country band at a barn dance.</p>
+  <div class="lpBtns">
+    <button id="lpSongs" class="lpBtn primary"><b>▶︎ Play the songs</b><span>With guide vocals</span></button>
+    <button id="lpShow" class="lpBtn"><b>▶︎ Play the show</b><span>Songs plus placeholder dialogue</span></button>
+  </div>
+  <p class="lpSign"><a href="?gate" id="lpSign">Sign in to audition or comment</a></p>
+  <p class="lpFoot"><a href="about.html">About this musical</a><a href="story.html">The Story of “The Story of the Magic Pick”</a></p>
+</section>
 <section id="gate" aria-label="Sign in">
   <h1>Magic Pick Player</h1>
   <p id="gIntro">The player is for paid subscribers of Brian's Substack. Sign in with the email address you subscribe with.</p>
@@ -320,6 +359,7 @@ body.recmode .song .sub, body.recmode .song .tkdrawer { display: none; }
 <main class="wrap">
   <header class="top">
     <h1>Magic Pick Player</h1>
+    <button id="lsBack" class="small" title="Back to the start page">About the show</button>
     <div class="seg tabs" role="group" aria-label="Act">
       <button data-act="1" aria-pressed="true">Act 1</button>
       <button data-act="2" aria-pressed="false">Act 2</button>
@@ -522,6 +562,7 @@ const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { ret
 // a sign-in link arrives as ?signin=TOKEN; it's handled once the page has loaded
 const SIGNIN_TOKEN = new URLSearchParams(location.search).get("signin");
 if (SIGNIN_TOKEN) history.replaceState(null, "", location.pathname);
+let LISTEN = false;   // the pared-down listening player, entered from the landing page
 
 let act = store.get("mp_act") === "2" ? "2" : "1";
 let SONGS = ACTS[act].songs;
@@ -593,7 +634,8 @@ let gateMeEmail = "";
 function setLocked(on) {
   const was = document.body.classList.contains("locked");
   document.body.classList.toggle("locked", on);
-  if (on && !was) stopEverything();
+  store.set("mp_member", on ? "0" : "1");
+  if (on && !was && !LISTEN) stopEverything();
   if (!on) { stopGateWatch(); return; }
   gateMeEmail = me.email || "";
   $("gNote").textContent = gateMeEmail
@@ -1075,7 +1117,7 @@ document.querySelectorAll(".lyrbar .seg button").forEach(b => b.onclick = () => 
   else if (dlg && (phase === "before" || phase === "after")) { showDialogue(); markDialogue(); }
   else showDialogueBrowse();
 });
-function showAcct() { acctWanted = true; fillPlayers(); $("acctPanel").scrollIntoView({ behavior: "smooth", block: "nearest" }); }
+function showAcct() { if (LISTEN) { location.href = location.pathname + "?gate"; return; } acctWanted = true; fillPlayers(); $("acctPanel").scrollIntoView({ behavior: "smooth", block: "nearest" }); }
 $("acctClose").onclick = () => { acctWanted = false; fillPlayers(); };
 $("whoSign").onclick = showAcct;
 
@@ -1148,6 +1190,9 @@ function advance(my) {
   if (through && cur + 1 < SONGS.length) {
     setStatus("Next: " + SONGS[cur + 1].title); phase = "gap";
     timer = setTimeout(() => { if (my === run) start(cur + 1, "before", 0); }, GAP * 1000);
+  } else if (LISTEN && through && act === "1" && ACTS["2"]) {
+    setStatus("Next: " + ACTS["2"].title); phase = "gap";
+    timer = setTimeout(() => { if (my !== run) return; act = "2"; renderAct(); start(0, "before", 0); }, GAP * 2000);
   } else { setStatus(cur + 1 < SONGS.length ? "Song finished." : "End of " + ACTS[act].title + "."); phase = "song"; showLyrics(); }
 }
 
@@ -2141,6 +2186,20 @@ function syncRecMode() {
 new MutationObserver(syncRecMode).observe($("recArea"), { attributes: true, attributeFilter: ["hidden"] });
 
 // ---------------- start ----------------
+// ---- landing page and the listening player ----
+// Anyone with the link can listen: the Original show (guide vocals, no takes), songs only or with the placeholder dialogue.
+// Nothing here is saved to the visitor's player settings.
+function enterListen(withDlg) {
+  LISTEN = true; document.body.classList.add("listen"); document.body.classList.remove("landing");
+  stopEverything(); plId = ""; what = "song"; mix = "bandvox"; through = true; dialogueOn = withDlg;
+  $("dlgToggle").setAttribute("aria-pressed", String(withDlg));
+  act = "1"; renderAct(); renderPlaylists(); showRunningOrder(true); window.scrollTo(0, 0);
+  start(0, "before", 0);
+}
+$("lpSongs").onclick = () => enterListen(false);
+$("lpShow").onclick = () => enterListen(true);
+$("lsBack").onclick = () => { stopEverything(); ui(); setStatus("Press Play."); document.body.classList.add("landing"); window.scrollTo(0, 0); };
+
 renderAct(); syncRecMode(); if (PL_LOCAL) mergePlaylists(undefined); renderPlaylists(); renderWho(); setStatus("Press Play. Songs load as you reach them.");
 if (SIGNIN_TOKEN) finishSignin(); else refreshTakes();
 </script>
