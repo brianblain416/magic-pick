@@ -208,7 +208,7 @@ a.btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
 .seg select { border: 0; border-left: 1px solid var(--line); border-radius: 0; background: var(--panel); color: var(--ink); font: inherit; font-size: 14px; padding: 0 6px; cursor: pointer; }
 .ctl .sep { width: 1px; align-self: stretch; background: var(--line); margin: 2px 2px; }
 [hidden] { display: none !important; }
-.foot { display: flex; flex-wrap: wrap; gap: 6px 20px; justify-content: center; padding-top: 18px; border-top: 1px solid var(--line); font-size: 14px; }
+.foot { order: 9; display: flex; flex-wrap: wrap; gap: 6px 20px; justify-content: center; padding-top: 18px; border-top: 1px solid var(--line); font-size: 14px; }
 .foot a { color: var(--muted); }
 .foot a:hover { color: var(--accent); }
 @media (max-width: 600px) {
@@ -492,9 +492,9 @@ body.recmode .song .sub, body.recmode .song .tkdrawer { display: none; }
       <span class="stage" id="stage">Ready</span>
     </div>
     <div class="ctl">
-      <button id="prev" aria-label="Previous song">◀︎</button>
+      <button id="prev" aria-label="Previous song" title="Previous song">⏮︎ Prev</button>
       <button id="play" class="primary">Play</button>
-      <button id="next" aria-label="Next song">▶︎</button>
+      <button id="next" aria-label="Next song" title="Skip to the next song">Next ⏭︎</button>
       <div class="seg" id="what" role="group" aria-label="What to play">
         <button data-what="song" aria-pressed="true">Full song</button>
         <button data-what="songloop" aria-pressed="false">Song + Loop</button>
@@ -650,7 +650,7 @@ body.recmode .song .sub, body.recmode .song .tkdrawer { display: none; }
     <div class="rv-pend" id="rvPend"></div>
     <p class="note" id="rvNote"></p>
   </dialog>
-  <footer class="foot"><a href="about.html">About this musical</a><a href="story.html">The Story of “The Story of the Magic Pick”</a></footer>
+  <footer class="foot"><a href="about.html">About this musical</a><a href="story.html">The Story of “The Story of the Magic Pick”</a><a href="./?audition">Audition</a></footer>
 </main>
 
 <script src="config.js"></script>
