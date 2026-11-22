@@ -319,6 +319,8 @@ body.listen #plBar, body.listen #recToggle, body.listen #whoBar, body.listen #wh
 body.listen #what, body.listen .seg:has(> [data-mix]), body.listen #through, body.listen .ctl .sep, body.listen #npPicks,
 body.listen .song .picks, body.listen .song .tkdrawer, body.listen #roPanel > .note, body.listen #recArea,
 body.listen #takesPanel, body.listen #acctPanel, body.listen #midiPanel { display: none !important; }
+/* the words come straight after Now playing, so nobody has to scroll to find them; the running order goes below */
+body.listen #lyrPanel { order: 1; } body.listen #roPanel { order: 2; }
 #gate { max-width: 440px; margin: 12vh auto 40px; padding: 24px 20px; display: grid; gap: 14px; background: var(--well); border: 1px solid var(--line); border-radius: 2px; }
 #gate h1 { margin: 0; font-size: 26px; }
 #gate p { margin: 0; }
@@ -606,7 +608,7 @@ body.recmode .song .sub, body.recmode .song .tkdrawer { display: none; }
     </div>
   </section>
 
-  <section class="panel" aria-label="Lyrics and dialogue">
+  <section class="panel" id="lyrPanel" aria-label="Lyrics and dialogue">
     <div class="lyrbar">
       <div class="eyebrow" id="lyrHead">Lyrics</div>
       <select id="viewSel" aria-label="Text version" hidden></select>
