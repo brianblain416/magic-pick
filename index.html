@@ -255,8 +255,8 @@ button.primary:hover:not(:disabled) { background: #5cffd0; }
 .line, .song, .cbtn, .tag { border-radius: 2px; }
 .line:not(.now):hover { background: var(--well); }
 /* paid-subscriber sign-in screen: the player stays hidden until the library says this device may use it */
-body.locked:not(.listen) > main.wrap { display: none; }
-body:not(.locked) > #gate, body.listen > #gate { display: none; }
+body.locked:not(.listen):not(.arec) > main.wrap { display: none; }
+body:not(.locked) > #gate, body.listen > #gate, body.audition > #gate { display: none; }
 /* landing: the first page for anyone who isn't a signed-in member; Play takes them into the pared-down listening player */
 #landing { display: none; }
 body.landing > #landing { display: grid; }
@@ -274,6 +274,44 @@ body.landing > #gate, body.landing > main.wrap { display: none !important; }
 #landing .lpSign { margin: 6px 0 0; }
 #landing .lpSign a, #landing .lpFoot a { color: var(--accent); }
 #landing .lpFoot { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 18px 0 0; font-size: 14px; }
+/* auditions: sign in, pick a role (or guitar songs), check headphones and mic, then a stripped-down recorder */
+#audition { display: none; }
+body.audition > #audition { display: grid; }
+body.audition > #landing { display: none !important; }
+body.audition:not(.arec) > main.wrap, body.arec > #audition { display: none !important; }
+#audition { max-width: 640px; margin: 4vh auto 40px; padding: 0 16px; gap: 14px; }
+#audition h1 { margin: 0; font-size: clamp(28px, 7vw, 40px); }
+#audition p { margin: 0; }
+#audition .auView { display: grid; gap: 14px; }
+#audition .auView[hidden] { display: none; }
+#audition label.f { display: grid; gap: 4px; font-size: 14px; color: var(--muted); }
+#audition input, #audition select { font-size: 16px; padding: 8px 10px; }
+#audition a { color: var(--accent); }
+.auCards { display: grid; gap: 10px; }
+.auCard { display: grid; gap: 4px; text-align: left; padding: 14px 16px; border-left: 5px solid var(--c, var(--accent)); border-radius: 4px; background: var(--panel); }
+.auCard b { font-size: 21px; color: var(--c, var(--ink)); }
+.auCard span { font-size: 14px; color: var(--muted); }
+.auCard .auTags { color: var(--ink); font-size: 13px; }
+.auSong { display: flex; align-items: center; gap: 12px; text-align: left; width: 100%; padding: 10px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.auSong .t { flex: 1; min-width: 0; }
+.auSong .t b { display: block; font-weight: 600; }
+.auSong .t span { font-size: 13px; color: var(--muted); }
+.auSong .t .sent { color: var(--accent); }
+.auSong input[type=checkbox] { width: 22px; height: 22px; flex: none; accent-color: var(--solo); }
+.auHead { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-top: 6px !important; }
+.auCount { display: flex; align-items: center; gap: 12px; justify-content: space-between; background: var(--well); padding: 10px 14px; border-radius: 8px; }
+.auSteps { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.auSteps li { display: grid; gap: 8px; padding: 12px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.auSteps li > b { font-size: 17px; }
+.auMeter { height: 10px; background: var(--well); border-radius: 5px; overflow: hidden; }
+.auMeter i { display: block; height: 100%; width: 0; background: var(--play); transition: width .08s; }
+#auBar { display: none; }
+body.arec #auBar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+#auBar b { font-size: 18px; }
+body.arec #plBar, body.arec #recToggle, body.arec #whoBar, body.arec #whoSign, body.arec #rvOpen, body.arec #lsBack, body.arec .top .tabs,
+body.arec #roToggle, body.arec #roPanel, body.arec #prev, body.arec #next, body.arec #what, body.arec .seg:has(> [data-mix]), body.arec #through,
+body.arec #dlgToggle, body.arec #skip, body.arec .ctl .sep, body.arec #npPicks, body.arec #recMenu, body.arec #gtrRow, body.arec #recLimit,
+body.arec #recAreaClose, body.arec .f:has(> #recPrivacy), body.arec #takesPanel, body.arec #acctPanel, body.arec #midiPanel, body.arec .top h1 { display: none !important; }
 /* listening player: just play, the running order and the lyrics */
 #lsBack { display: none; }
 body.listen #lsBack { display: inline-block; }
@@ -328,7 +366,7 @@ body.recmode .song .sub, body.recmode .song .tkdrawer { display: none; }
 </style>
 </head>
 <body class="locked landing">
-<script>try { if (localStorage.getItem("mp_member") === "1" && !/[?&]listen\b/.test(location.search) || /[?&](gate|signin)\b/.test(location.search)) document.body.classList.remove("landing"); } catch (e) {}</script>
+<script>try { if (localStorage.getItem("mp_member") === "1" && !/[?&]listen\b/.test(location.search) || /[?&](gate|signin|audition)\b/.test(location.search)) document.body.classList.remove("landing"); } catch (e) {}</script>
 <section id="landing" aria-label="The Magic Pick">
   <p class="lpEye">A 70s STONER ROCK MUSICAL, REVIVED</p>
   <h1>The Magic Pick</h1>
@@ -340,8 +378,71 @@ body.recmode .song .sub, body.recmode .song .tkdrawer { display: none; }
     <button id="lpSongs" class="lpBtn primary"><b>▶︎ Play the songs</b><span>With guide vocals</span></button>
     <button id="lpShow" class="lpBtn"><b>▶︎ Play the show</b><span>Songs plus placeholder dialogue</span></button>
   </div>
-  <p class="lpSign"><a href="?gate" id="lpSign">Sign in to audition or comment</a></p>
+  <p class="lpSign"><a href="?audition" id="lpSign">Sign in to audition or comment</a></p>
   <p class="lpFoot"><a href="about.html">About this musical</a><a href="story.html">The Story of “The Story of the Magic Pick”</a></p>
+</section>
+<section id="audition" aria-label="Auditions">
+  <p><a href="./" id="auHome">← The Magic Pick</a></p>
+  <div class="auView" id="auSign" hidden>
+    <h1>Audition for The Magic Pick</h1>
+    <p>Sing one of the three leads, or play lead guitar, by recording along with the show from home. You'll need headphones and a microphone (the one in your computer or phone is fine to start).</p>
+    <p>Enter your name and email. We'll email you a link: open it on the computer or phone you'll record on.</p>
+    <label class="f" id="auNameBox">Your name
+      <input id="auName" maxlength="24" autocomplete="name" placeholder="Sam Taylor">
+    </label>
+    <label class="f">Your email
+      <input id="auEmail" type="email" maxlength="120" autocomplete="email" placeholder="sam@example.com">
+    </label>
+    <button id="auSend" class="primary">Email me a sign-in link</button>
+    <p class="note" id="auNote"></p>
+  </div>
+  <div class="auView" id="auPick" hidden>
+    <h1>Audition</h1>
+    <p>Pick a character and sing along with the guide vocal, or play lead guitar. Your takes are private: only Brian hears them.</p>
+    <div class="auCards">
+      <button class="auCard" data-role="Robbie" style="--c: var(--robbie)"><b>Robbie</b><span>Any age: young and glamorous, or a seasoned performer.</span><span class="auTags" data-tags="Robbie"></span></button>
+      <button class="auCard" data-role="Melissa" style="--c: var(--melissa)"><b>Melissa</b><span>Any age: young and glamorous, or a seasoned performer.</span><span class="auTags" data-tags="Melissa"></span></button>
+      <button class="auCard" data-role="Clive" style="--c: var(--clive)"><b>Clive</b><span>Older, a little grizzled and war-torn.</span><span class="auTags" data-tags="Clive"></span></button>
+      <button class="auCard" data-role="Guitar" style="--c: var(--solo)"><b>Lead guitar</b><span>Pick 3 or 4 songs and take a solo.</span></button>
+    </div>
+    <p class="note">To comment on a lyric or a line of dialogue, <a href="./?listen">play the show</a> and tap the line.</p>
+    <p class="note"><span id="auMe"></span> <button id="auFull" class="small" hidden>Open the full player</button> <button id="auOut" class="small">Sign out</button></p>
+  </div>
+  <div class="auView" id="auRole" hidden>
+    <p><button class="small auToPick">← All roles</button></p>
+    <h1 id="auRoleName"></h1>
+    <p id="auRoleNote"></p>
+    <div class="auCards" id="auSongs"></div>
+    <p id="auChange" hidden><button class="small" id="auChangeBtn">Change songs</button></p>
+  </div>
+  <div class="auView" id="auGtr" hidden>
+    <p><button class="small auToPick">← All roles</button></p>
+    <h1 style="color: var(--solo)">Play lead with us</h1>
+    <p>Pick 3 or 4 songs you'd like to solo on. Each one plays in full, then the band keeps vamping so you can stretch out. Play along, listen back, and send us the takes you're happy with.</p>
+    <div class="auCards" id="auGList"></div>
+    <div class="auCount"><span id="auGCount"></span><button id="auGStart" class="primary">Start</button></div>
+  </div>
+  <div class="auView" id="auCheck" hidden>
+    <p><button class="small" id="auCheckBack">← Back</button></p>
+    <h1>Before you record</h1>
+    <ol class="auSteps">
+      <li><b>1. Put on headphones</b><span>The band plays while you record. Through speakers it would leak into your take.</span></li>
+      <li><b>2. Allow the microphone</b>
+        <span id="auMicNote">Your browser will ask. Choose Allow.</span>
+        <button id="auMic">Allow microphone</button>
+        <div class="row" id="auInRow" hidden>
+          <label class="f">Input <select id="auDev"></select></label>
+          <label class="f">Channel <select id="auCh"><option value="0">Input 1</option><option value="1">Input 2</option></select></label>
+        </div>
+        <div class="auMeter" id="auMeterBox" hidden><i id="auMeter"></i></div>
+      </li>
+      <li><b>3. Make a test recording</b>
+        <span id="auTestNote">Sing or play for 5 seconds, then listen back.</span>
+        <div class="row"><button id="auTest" disabled>Record 5 seconds</button><button id="auTestPlay" disabled>Play it back</button></div>
+      </li>
+    </ol>
+    <button id="auReady" class="primary">I'm ready</button>
+  </div>
 </section>
 <section id="gate" aria-label="Sign in">
   <h1>Magic Pick Player</h1>
@@ -357,6 +458,7 @@ body.recmode .song .sub, body.recmode .song .tkdrawer { display: none; }
   <p class="note" id="gSub" hidden></p>
 </section>
 <main class="wrap">
+  <div id="auBar"><button class="small" id="auBarBack">← Songs</button><b id="auBarRole"></b><span class="note">Press Play to hear the song first, then Record.</span></div>
   <header class="top">
     <h1>Magic Pick Player</h1>
     <button id="lsBack" class="small" title="Back to the start page">About the show</button>
@@ -561,7 +663,8 @@ const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { ret
 
 // a sign-in link arrives as ?signin=TOKEN; it's handled once the page has loaded
 const SIGNIN_TOKEN = new URLSearchParams(location.search).get("signin");
-if (SIGNIN_TOKEN) history.replaceState(null, "", location.pathname);
+const AUD_Q = new URLSearchParams(location.search).get("audition");   // ?audition, ?audition=robbie … (null = not auditioning)
+if (SIGNIN_TOKEN) history.replaceState(null, "", location.pathname + (AUD_Q != null ? "?audition" : ""));
 let LISTEN = false;   // the pared-down listening player, entered from the landing page
 
 let act = store.get("mp_act") === "2" ? "2" : "1";
@@ -589,6 +692,7 @@ function load(file, expect) {
 }
 const songFile = (i, m) => "audio/a" + act + "/" + SONGS[i].n + "_" + m + ".mp4";
 const loopFile = i => "audio/a" + act + "/" + SONGS[i].n + "_loop.mp4";
+const songFileOf = (a, i, m) => "audio/a" + a + "/" + ACTS[a].songs[i].n + "_" + m + ".mp4";
 // spoken dialogue: one file per line (tools/dlgbuild.py); DLG_AUDIO has their lengths and the in-song times of "during" lines
 const dlgAud = i => (typeof DLG_AUDIO !== "undefined" && DLG_AUDIO[act] && DLG_AUDIO[act][SONGS[i].n]) || {};
 const dlgFile = (i, part, idx) => "audio/a" + act + "/dlg/" + SONGS[i].n + "_" + part + String(idx + 1).padStart(2, "0") + ".mp4";
@@ -675,7 +779,7 @@ async function refreshTakes() {
   try {
     const j = await api("list"); remote = j.takes || []; PLAYERS = j.players || [];
     me = j.me ? { handle: j.me.name, email: j.me.email } : { handle: "", email: "" }; IS_ADMIN = !!j.admin;
-    COMMENTS = j.comments || [];
+    COMMENTS = j.comments || []; AUDS = j.auditions || AUDS;
     if (!j.locked) mergePlaylists(j.playlists);
     setLocked(!!j.locked);
   }
@@ -1117,7 +1221,7 @@ document.querySelectorAll(".lyrbar .seg button").forEach(b => b.onclick = () => 
   else if (dlg && (phase === "before" || phase === "after")) { showDialogue(); markDialogue(); }
   else showDialogueBrowse();
 });
-function showAcct() { if (LISTEN) { location.href = location.pathname + "?gate"; return; } acctWanted = true; fillPlayers(); $("acctPanel").scrollIntoView({ behavior: "smooth", block: "nearest" }); }
+function showAcct() { if (LISTEN) { location.href = location.pathname + "?audition"; return; } acctWanted = true; fillPlayers(); $("acctPanel").scrollIntoView({ behavior: "smooth", block: "nearest" }); }
 $("acctClose").onclick = () => { acctWanted = false; fillPlayers(); };
 $("whoSign").onclick = showAcct;
 
@@ -1665,15 +1769,18 @@ async function finishSignin() {
 }
 function recLabels() {
   const s = SONGS[cur];
-  $("recChannel").value = store.get("mp_ch_" + rec.kind) || (rec.kind === "solo" ? "1" : "0");
+  $("recChannel").value = store.get("mp_ch_" + rec.kind) || (rec.kind === "solo" && !AUD ? "1" : "0");
   $("recNote").textContent = rec.kind === "synth"
     ? "Syn2 for " + s.title + ": the Band mix plays from the count-in. Use headphones."
     : rec.kind === "vocal"
     ? "The Band mix plays from the count-in. Use headphones."
     : (rec.gm === "song" ? "The song plays from the count-in and recording stops at its end; your take is the whole song."
       : (rec.gm === "songloop" ? "The song, then the Loop straight on until Stop." : "Two bars of click, then the Loop until Stop.")
-        + " Your take keeps the last two complete passes.") + " Guitar into the instrument input, with direct monitoring.";
+        + " Your take keeps the last four complete passes.") + " Guitar into the instrument input, with direct monitoring.";
   if (rec.kind !== "synth") $("recNote").textContent += alongText(cur);
+  if (AUD) $("recNote").textContent = rec.kind === "vocal"
+    ? "The song plays from the count-in with the guide vocal. Sing along in your headphones. Recording stops at the end of the song."
+    : "The song plays, then the band keeps vamping on the Loop until you press Stop. Play at least four times round the Loop: your take keeps the song and the last four passes.";
   gtrUI();
 }
 // guitar: Full song (stops at the song's end), Song + Loop, or Loop only
@@ -1691,16 +1798,16 @@ document.querySelectorAll("#gtrRow [data-gm]").forEach(b => b.onclick = () => {
   rec.gm = b.dataset.gm; store.set("mp_gm", rec.gm); recLabels();
 });
 // A long Loop run keeps only what the take can use: everything before the Loop (the song, for a
-// full-song take) and the passes from two before the current one, so memory stays flat.
+// full-song take) and the passes from SOLO_PASSES before the current one, so memory stays flat.
 function pruneLoopChunks(L) {
   const sr = ctx.sampleRate, lt = ctx.currentTime - rec.loopT, done = Math.floor(lt / L);
-  if (done < 3) return;
-  const loopF = rec.loopT * sr, keepF = (rec.loopT + (done - 2) * L - 1) * sr;
+  if (done < SOLO_PASSES + 1) return;
+  const loopF = rec.loopT * sr, keepF = (rec.loopT + (done - SOLO_PASSES) * L - 1) * sr;
   rec.chunks = rec.chunks.filter(c => { const end = c.f + c.d.reduce((n, fr) => n + fr[0].length, 0); return c.f < loopF || end > keepF; });
 }
-// Every solo is a double: keep the last two complete Loop passes before Stop
-// (for a full-song take, the song and count-in, then those two passes).
-const SOLO_PASSES = 2;
+// Keep the last four complete Loop passes before Stop
+// (for a full-song take, the song and count-in, then those passes).
+const SOLO_PASSES = 4;
 // get(a, b): the recorded input from a to b seconds after the take's start; total: the take's length in seconds
 async function keepLastPasses(get, total, sr, lat, loopAt, L) {
   const passes = Math.floor((total - lat - loopAt) / L);
@@ -1770,7 +1877,7 @@ $("recGo").onclick = async () => {
   let bed, along;
   const gm = rec.kind === "solo" ? rec.gm : null, full = gm === "song" || gm === "songloop"; let song = null; rec.full = full; rec.gmAt = gm;
   try {
-    bed = rec.kind !== "solo" ? await load(songFile(i, "band"), s.dur) : await load(loopFile(i), s.loopDur);
+    bed = rec.kind !== "solo" ? await load(songFile(i, AUD ? "bandvox" : "band"), s.dur) : await load(loopFile(i), s.loopDur);
     if (full) song = await load(songFile(i, liveTakes(i, "vocal").length ? "band" : mix), s.dur);
     along = await alongBufs(i);
   } catch (e) { $("recNote").textContent = "Couldn't load the backing track. Check your connection."; return; }
@@ -1825,15 +1932,15 @@ function stopRecording() {
     if (rec.kind === "solo" && rec.gmAt !== "song") {
       const s = SONGS[rec.i], loopAt = rec.full ? s.dur : 0;
       const tk = await keepLastPasses((a, b) => assemble(rec.chunks, (rec.t0 + a) * sr, (rec.t0 + b) * sr), dur, sr, lat, loopAt, s.loopDur);
-      if (!tk) { rec.state = "idle"; resetRecUI(); gtrUI(); $("recNote").textContent = "Play at least two complete passes of the Loop before pressing Stop."; return; }
+      if (!tk) { rec.state = "idle"; resetRecUI(); gtrUI(); $("recNote").textContent = "Play at least four complete passes of the Loop before pressing Stop."; return; }
       rec.take = tk; rec.state = "review";
-      $("recNote").textContent = "You played " + tk.passes + " complete passes of the Loop; your take keeps the last two. Listen back, then save it or discard it.";
+      $("recNote").textContent = "You played " + tk.passes + " complete passes of the Loop; your take keeps " + (AUD ? "the song and " : "") + "the last four. Listen back, then " + (AUD ? "send it" : "save it") + " or discard it.";
     } else {
       const blob = await toWav24k(assemble(rec.chunks, rec.t0 * sr, endT * sr), sr);
       const buf = await ctx.decodeAudioData(await blob.arrayBuffer());
       rec.take = { blob, buf, dur: Math.max(0, dur - lat), offset: lat };
       rec.state = "review";
-      $("recNote").textContent = "Recorded " + fmtT(dur) + ". Listen back, then save it or discard it.";
+      $("recNote").textContent = "Recorded " + fmtT(dur) + ". Listen back, then " + (AUD ? "send it" : "save it") + " or discard it.";
     }
     resetRecUI(); gtrUI();
     ["recListen", "recSave", "recDiscard"].forEach(id => $(id).disabled = false);
@@ -1864,6 +1971,7 @@ $("recListen").onclick = async () => {
 $("recSave").onclick = async () => {
   if (!rec.take) return;
   const s = ACTS[rec.act].songs[rec.i];
+  if (AUD && BACKEND_URL) return sendAudition(s);
   if (!BACKEND_URL) {
     const a = document.createElement("a"); a.href = URL.createObjectURL(rec.take.blob);
     a.download = "MagicPick_A" + rec.act + "-" + s.n + "_" + rec.kind + (rec.kind === "solo" ? "-" + rec.gmAt : "") + "_" + new Date().toISOString().slice(0, 16).replace(/[:T]/g, "") + ".wav"; a.click();
@@ -2186,6 +2294,216 @@ function syncRecMode() {
 new MutationObserver(syncRecMode).observe($("recArea"), { attributes: true, attributeFilter: ["hidden"] });
 
 // ---------------- start ----------------
+// ---- auditions ----
+// ?audition opens the audition pages: sign in (email only, no subscription needed), pick a role or guitar songs,
+// check headphones and mic, then record in a stripped-down player. Takes go to the library as private takes
+// plus a row in the Auditions sheet. AUD is set while recording an audition: {role, kind, i, act}.
+let AUD = null, AUDS = [], auView = "", auRole = "", auChecked = { vocal: false, solo: false }, auPending = null;
+const AU_ROLES = ["Robbie", "Melissa", "Clive"];
+const AU_DESC = { Robbie: "Any age: young and glamorous, or a seasoned performer.", Melissa: "Any age: young and glamorous, or a seasoned performer.", Clive: "Older, a little grizzled and war-torn." };
+const allSongs = () => ["1", "2"].flatMap(a => ACTS[a].songs.map((s, i) => ({ a, i, s })));
+const singers = s => String(s.singer).split(/\s*&\s*/);
+function roleSongs(role) {
+  const all = allSongs().filter(x => singers(x.s).includes(role));
+  return { solos: all.filter(x => singers(x.s).length === 1), duets: all.filter(x => singers(x.s).length > 1) };
+}
+function gtrPicks() { try { return JSON.parse(store.get("mp_au_gtr") || "[]").filter(k => allSongs().some(x => key(x.a, x.s.n) === k)); } catch (e) { return []; } }
+function sentCount(role, a, n) { return AUDS.filter(x => x.role === role && String(x.act) === a && x.song === n).length; }
+function auShow(view) {
+  auView = view; LISTEN = false;
+  document.body.classList.add("audition"); document.body.classList.remove("landing", "listen", "arec");
+  document.querySelectorAll("#audition .auView").forEach(v => v.hidden = v.id !== view);
+  if (view !== "auCheck") auStopMeter();
+  window.scrollTo(0, 0);
+}
+function showAudition(want) {
+  if (!me.email) return auShow("auSign");
+  const r = String(want || "").toLowerCase();
+  if (r === "guitar") return gtrPicks().length ? auRoleView("Guitar") : auGtrView();
+  const role = AU_ROLES.find(x => x.toLowerCase() === r);
+  if (role) return auRoleView(role);
+  auPickView();
+}
+function auPickView() {
+  $("auMe").textContent = "Signed in as " + me.handle + " (" + me.email + ").";
+  $("auFull").hidden = document.body.classList.contains("locked");
+  document.querySelectorAll("[data-tags]").forEach(el => { const r = roleSongs(el.dataset.tags); el.textContent = r.solos.length + " songs" + (r.duets.length ? " · " + r.duets.length + " duets" : ""); });
+  auShow("auPick");
+}
+function songRow(x, role, sub) {
+  const b = mk("button", "auSong"), t = mk("span", "t"), n = sentCount(role, x.a, x.s.n);
+  t.append(mk("b", "", x.s.title), mk("span", n ? "sent" : "", n ? "Sent ✓" + (n > 1 ? " (" + n + " takes)" : "") : sub));
+  b.append(t, mk("span", "note", role === "Guitar" ? "Solo →" : "Sing →"));
+  b.onclick = () => auRecord(role, x.a, x.i);
+  return b;
+}
+function auRoleView(role) {
+  auRole = role; const box = $("auSongs"); box.replaceChildren();
+  $("auRoleName").textContent = role === "Guitar" ? "Lead guitar" : role;
+  $("auRoleName").style.color = "var(--" + (role === "Guitar" ? "solo" : role.toLowerCase()) + ")";
+  $("auChange").hidden = role !== "Guitar";
+  if (role === "Guitar") {
+    $("auRoleNote").textContent = "Each song plays in full, then the band keeps vamping until you press Stop. Play along, listen back, and send the takes you're happy with.";
+    gtrPicks().forEach(k => { const x = allSongs().find(y => key(y.a, y.s.n) === k); box.append(songRow(x, role, x.s.bpm ? Math.round(x.s.bpm) + " BPM · " + x.s.meter + "/4" : "")); });
+  } else {
+    $("auRoleNote").textContent = AU_DESC[role] + " Each song plays in full with the guide vocal: sing along, listen back, and send the takes you're happy with. Two or three good ones are plenty.";
+    const r = roleSongs(role);
+    if (r.solos.length) box.append(mk("p", "auHead", "Songs"));
+    r.solos.forEach(x => box.append(songRow(x, role, "Act " + x.a + " · " + fmtT(x.s.dur))));
+    if (r.duets.length) box.append(mk("p", "auHead", "Duets"));
+    r.duets.forEach(x => box.append(songRow(x, role, "With " + singers(x.s).filter(y => y !== role).join(" and ") + " · sing over both guide vocals")));
+  }
+  auShow("auRole");
+}
+function auGtrView() {
+  const picked = new Set(gtrPicks()), box = $("auGList"); box.replaceChildren();
+  const count = () => { const n = picked.size; $("auGCount").textContent = n + " picked" + (n < 3 ? " · 3 or 4 suggested" : n > 4 ? " · 3 or 4 is plenty" : ""); };
+  allSongs().forEach(x => {
+    const k = key(x.a, x.s.n), row = mk("label", "auSong"), cb = document.createElement("input"), t = mk("span", "t");
+    cb.type = "checkbox"; cb.checked = picked.has(k);
+    cb.onchange = () => { cb.checked ? picked.add(k) : picked.delete(k); store.set("mp_au_gtr", JSON.stringify([...picked])); count(); };
+    t.append(mk("b", "", x.s.title), mk("span", "", "Act " + x.a + " · " + Math.round(x.s.bpm) + " BPM · " + x.s.meter + "/4"));
+    const pv = mk("button", "small", "▶︎ Preview");
+    pv.onclick = async e => { e.preventDefault(); auPreview(x, pv); };
+    row.append(cb, t, pv); box.append(row);
+  });
+  count();
+  $("auGStart").onclick = () => { if (!picked.size) { $("auGCount").textContent = "Pick at least one song."; return; } auPreview(null); auRoleView("Guitar"); };
+  auShow("auGtr");
+}
+let auPrevBtn = null;
+async function auPreview(x, btn) {
+  stopAll(); if (auPrevBtn) auPrevBtn.textContent = "▶︎ Preview";
+  if (!x || auPrevBtn === btn) { auPrevBtn = null; return; }
+  auPrevBtn = btn; btn.textContent = "Loading…";
+  try {
+    audio(); await ctx.resume();
+    const b = await load(songFileOf(x.a, x.i, "bandvox"), x.s.dur);
+    if (auPrevBtn !== btn) return;
+    const n = src(b, ctx.currentTime + 0.05, 0); btn.textContent = "■ Stop";
+    n.onended = () => { if (auPrevBtn === btn) { btn.textContent = "▶︎ Preview"; auPrevBtn = null; } };
+  } catch (e) { btn.textContent = "▶︎ Preview"; auPrevBtn = null; }
+}
+// open the stripped-down recorder for one song (after the headphones and mic check, once per visit)
+function auRecord(role, a, i) {
+  const kind = role === "Guitar" ? "solo" : "vocal";
+  if (!auChecked[kind]) { auPending = { role, a, i }; return auCheckView(kind); }
+  AUD = { role, kind };
+  stopEverything();
+  if (act !== a) { act = a; renderAct(); }
+  plId = ""; what = "song"; mix = "bandvox"; through = false; dialogueOn = false;
+  document.body.classList.add("arec"); document.body.classList.remove("listen");
+  select(i);
+  rec.gm = "songloop"; rec.limit = 0;
+  openRecorder(kind);
+  $("recPrivacy").value = "private"; $("recSave").textContent = "Send take";
+  $("auBarRole").textContent = (role === "Guitar" ? "Lead guitar" : role) + " · " + SONGS[i].title;
+  window.scrollTo(0, 0);
+}
+$("auBarBack").onclick = () => {
+  if (rec.state === "recording") return;
+  if (rec.state === "review" && !confirm("Leave without sending this take?")) return;
+  if (rec.state === "review") $("recDiscard").click();
+  stopEverything(); ui(); showRecArea(false); AUD = null; $("recSave").textContent = "Save take";
+  auRoleView(auRole);
+};
+async function sendAudition(s) {
+  if (!me.email) await refreshTakes();
+  if (!me.email) { $("recNote").textContent = "You've been signed out. Your take is still here: sign in again in another tab, then press Send."; return; }
+  $("recSave").disabled = true; $("recNote").textContent = "Sending…";
+  try {
+    const b64 = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(",")[1]); fr.onerror = rej; fr.readAsDataURL(rec.take.blob); });
+    await api("audition", { act: +rec.act, song: s.n, kind: rec.kind, mode: rec.kind === "solo" ? (rec.full ? "full" : "loop") : "", dur: rec.take.dur, offset: rec.take.offset, mime: "audio/wav", data: b64, role: AUD.role, title: s.title });
+    AUDS.push({ role: AUD.role, act: +rec.act, song: s.n, kind: rec.kind, created: new Date().toISOString() });
+    rec.take = null; rec.state = "idle"; ["recListen", "recSave", "recDiscard"].forEach(id => $(id).disabled = true);
+    $("recNote").textContent = "Sent. Only Brian hears it. Record another take if you like, or go back to the songs.";
+  } catch (e) {
+    $("recSave").disabled = false;
+    $("recNote").textContent = "Couldn't send the take (" + e.message + "). Try again in a moment.";
+  }
+}
+// the check: headphones, microphone (input and channel), a 5-second test recording
+let auCap = null, auChunks = [], auTestBuf = null, auTesting = false;
+function auStopMeter() { if (auCap) { auCap.stop(); auCap = null; } }
+function auCheckView(kind) {
+  $("auCh").value = store.get("mp_ch_" + kind) || "0";
+  $("auMic").hidden = !!rec.stream; $("auInRow").hidden = !rec.stream; $("auMeterBox").hidden = !rec.stream;
+  if (!rec.stream) $("auMicNote").textContent = "Your browser will ask. Choose Allow.";
+  $("auTest").disabled = !rec.stream; $("auTestPlay").disabled = !auTestBuf;
+  $("auTestNote").textContent = kind === "solo" ? "Play for 5 seconds, then listen back." : "Sing for 5 seconds, then listen back.";
+  auShow("auCheck");
+  if (rec.stream) auStartMeter();
+}
+function auStartMeter() {
+  auStopMeter(); auChunks = [];
+  auCap = capture(c => {
+    if (auTesting) auChunks.push(c);
+    const fr = c.d[c.d.length - 1]; if (!fr) return;
+    const d = pickChannel(fr); let m = 0; for (const x of d) m = Math.max(m, Math.abs(x));
+    $("auMeter").style.width = Math.min(100, m * 140) + "%";
+  });
+}
+async function auOpenMic() {
+  try { await openInput(); }
+  catch (e) { $("auMicNote").textContent = "The browser couldn't open your microphone. Allow microphone access for this page (look for the microphone icon in the address bar) and try again."; return false; }
+  await listDevices();
+  const sel = $("auDev"); sel.replaceChildren(...[...$("recDevice").options].map(o => { const x = document.createElement("option"); x.value = o.value; x.textContent = o.textContent; return x; }));
+  sel.value = $("recDevice").value;
+  $("auMicNote").textContent = "Microphone on. Choose your input if it isn't the right one; the bar should move when you sing or play.";
+  $("auMic").hidden = true; $("auInRow").hidden = false; $("auMeterBox").hidden = false; $("auTest").disabled = false;
+  auStartMeter(); return true;
+}
+$("auMic").onclick = auOpenMic;
+$("auDev").onchange = async () => { $("recDevice").value = $("auDev").value; store.set("mp_dev", $("auDev").value); auStopMeter(); await auOpenMic(); };
+$("auCh").onchange = () => { $("recChannel").value = $("auCh").value; store.set("mp_ch_" + (auPending && auPending.role === "Guitar" ? "solo" : "vocal"), $("auCh").value); };
+$("auTest").onclick = async () => {
+  if (!auCap) return;
+  $("recChannel").value = $("auCh").value;
+  stopAll(); auChunks = []; auTesting = true; const t0 = ctx.currentTime;
+  $("auTest").disabled = true; $("auTestPlay").disabled = true;
+  for (let k = 5; k > 0; k--) { $("auTestNote").textContent = "Recording… " + k; await new Promise(r => setTimeout(r, 1000)); }
+  auTesting = false; const sr = ctx.sampleRate, samples = assemble(auChunks, t0 * sr, (t0 + 5) * sr);
+  let peak = 0; for (const x of samples) peak = Math.max(peak, Math.abs(x));
+  auTestBuf = ctx.createBuffer(1, Math.max(1, samples.length), sr); if (samples.length) auTestBuf.copyToChannel(samples, 0);
+  $("auTestNote").textContent = peak < 0.02 ? "That was very quiet. Check the input and channel above, move closer, or turn your input up. Then try again."
+    : peak > 0.98 ? "That was too loud and may distort. Turn your input down a little, then try again."
+    : "Sounds good. Play it back to check, or carry on.";
+  $("auTest").disabled = false; $("auTestPlay").disabled = false;
+};
+$("auTestPlay").onclick = () => { if (!auTestBuf) return; stopAll(); src(auTestBuf, ctx.currentTime + 0.05, 0); };
+$("auReady").onclick = () => {
+  const p = auPending; if (!p) return auPickView();
+  const kind = p.role === "Guitar" ? "solo" : "vocal";
+  if (!rec.stream) { $("auMicNote").textContent = "Allow the microphone first."; return; }
+  store.set("mp_ch_" + kind, $("auCh").value);
+  auChecked[kind] = true; auPending = null; auStopMeter(); stopAll();
+  auRecord(p.role, p.a, p.i);
+};
+$("auCheckBack").onclick = () => { auStopMeter(); stopAll(); const p = auPending; auPending = null; p ? auRoleView(p.role) : auPickView(); };
+document.querySelectorAll(".auCard[data-role]").forEach(b => b.onclick = () => b.dataset.role === "Guitar" ? (gtrPicks().length ? auRoleView("Guitar") : auGtrView()) : auRoleView(b.dataset.role));
+document.querySelectorAll(".auToPick").forEach(b => b.onclick = () => { auPreview(null); auPickView(); });
+$("auChangeBtn").onclick = auGtrView;
+$("auFull").onclick = () => { location.href = location.pathname + "?gate"; };
+$("auOut").onclick = async () => { try { await api("signout"); } catch (e) {} me = { handle: "", email: "" }; AUDS = []; await refreshTakes(); auShow("auSign"); };
+$("auSend").onclick = async () => {
+  const name = $("auName").value.trim(), email = $("auEmail").value.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { $("auNote").textContent = "Enter your email address."; return; }
+  if (!BACKEND_URL) { $("auNote").textContent = "Auditions aren't connected on this copy of the site."; return; }
+  $("auSend").disabled = true; $("auNote").textContent = "Sending…";
+  try {
+    await api("signin", { name, email, audition: true });
+    $("auNote").textContent = "Check your email (" + email + ") and open the link on this " + (/Mobi/.test(navigator.userAgent) ? "phone" : "computer") + ". This page will notice when you're signed in.";
+    let n = 0; const w = setInterval(async () => { if (++n > 180 || me.email) { clearInterval(w); if (me.email && auView === "auSign") showAudition(AUD_Q); return; } await refreshTakes(); }, 5000);
+  } catch (e) {
+    $("auNote").textContent = {
+      bad_name: "Enter your name (2–24 letters). It's your first sign-in.",
+      name_taken: "Someone else already uses that name. Add an initial or your surname.",
+      bad_email: "That email address doesn't look right.",
+      mail_quota: "The page has sent too many emails today. Try again tomorrow."
+    }[e.message] || "Couldn't send the email (" + e.message + "). Try again in a moment.";
+  } finally { $("auSend").disabled = false; }
+};
+
 // ---- landing page and the listening player ----
 // Anyone with the link can listen: the Original show (guide vocals, no takes), songs only or with the placeholder dialogue.
 // Nothing here is saved to the visitor's player settings.
@@ -2201,7 +2519,8 @@ $("lpShow").onclick = () => enterListen(true);
 $("lsBack").onclick = () => { stopEverything(); ui(); setStatus("Press Play."); document.body.classList.add("landing"); window.scrollTo(0, 0); };
 
 renderAct(); syncRecMode(); if (PL_LOCAL) mergePlaylists(undefined); renderPlaylists(); renderWho(); setStatus("Press Play. Songs load as you reach them.");
-if (SIGNIN_TOKEN) finishSignin(); else refreshTakes();
+(SIGNIN_TOKEN ? finishSignin() : refreshTakes()).then(() => { if (AUD_Q != null) showAudition(AUD_Q); });
+if (AUD_Q != null) auShow("");
 </script>
 </body>
 </html>

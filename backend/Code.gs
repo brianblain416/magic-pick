@@ -13,6 +13,9 @@
  *   Subscribers sheet: Brian's Substack subscriber export (File > Import > Replace current sheet).
  *                   Only emails marked paid or comp there can sign in and hear the player.
  *   Allowed sheet:  extra emails let in by hand (column A, one per row), e.g. before the next export.
+ *   Auditions sheet: one row per audition take (anyone can audition after confirming their email):
+ *                   created, name, email, role, act, song, title, kind, takeId, link, note.
+ *                   Audition takes are always private: only the auditioner and the admins hear them.
  *   Comments sheet: one row per comment on a lyric or dialogue line. A "replace" comment
  *                   is a suggested new wording (each person's suggestions form their own
  *                   version); a "note" just stays attached. Brian ticks suggestions
@@ -41,11 +44,14 @@ const LINK_MINUTES = 60;
 const COM_COLS = ['id', 'act', 'song', 'part', 'idx', 'kind', 'text', 'dir', 'original', 'origDir', 'handle', 'owner', 'created', 'status', 'appliedAt', 'appliedBy'];
 const PARTS = ['lyrics', 'before', 'during', 'after'];
 const PL_COLS = ['id', 'owner', 'handle', 'name', 'hidden', 'data', 'created', 'updated', 'removed'];
+const AUD_COLS = ['created', 'name', 'email', 'role', 'act', 'song', 'title', 'kind', 'takeId', 'link', 'note'];
+const ROLES = ['Robbie', 'Melissa', 'Clive', 'Guitar'];
 
 function setup() {
   sheet_('Players', ['name', 'email', 'created']);
   sheet_('Devices', DEV_COLS);
   sheet_('Takes', TAKE_COLS);
+  sheet_('Auditions', AUD_COLS);
   comSheet_();
   plSheet_();
   const st = sheet_('Settings', ['key', 'value']);
@@ -73,10 +79,13 @@ function doPost(e) {
     // The player is for Substack paid (and comp) subscribers only. A signed-in device whose email
     // has dropped off the list sees the sign-in screen again.
     const allowed = !!me && (admin || allowed_(me.email));
-    if (['list', 'signin', 'verify', 'signout'].indexOf(q.action) < 0 && !allowed) throw new Error(me ? 'not_subscriber' : 'signed_out');
+    // Anyone who has confirmed their email can audition and comment, without being a subscriber ("guest").
+    const GUEST_OK = ['audition', 'comment', 'uncomment', 'remove'];
+    if (['list', 'signin', 'verify', 'signout'].indexOf(q.action) < 0 && !allowed && !(me && GUEST_OK.indexOf(q.action) >= 0))
+      throw new Error(me ? 'not_subscriber' : 'signed_out');
     switch (q.action) {
-      case 'list': return out_(allowed ? list_(me, admin) : { ok: true, locked: true, takes: [], players: [], comments: [],
-        me: me ? { name: me.name, email: me.email } : null, admin: false });
+      case 'list': return out_(allowed ? list_(me, admin) : guestList_(me));
+      case 'audition': return out_(audition_(q, me));
       case 'signin': return out_(signin_(q));
       case 'verify': return out_(verify_(q));
       case 'signout': return out_(signout_(q));
@@ -106,6 +115,37 @@ function list_(me, admin) {
   const playlists = rows_('Playlists', PL_COLS).filter(p => !truthy_(p.removed) && (!truthy_(p.hidden) || (me && p.owner === me.email)))
     .map(p => publicPlaylist_(p, me));
   return { ok: true, takes, players, comments, playlists, me: me ? { name: me.name, email: me.email } : null, admin };
+}
+
+// A signed-in non-subscriber (or nobody): the full player stays locked; they get the comments and their own audition takes.
+function guestList_(me) {
+  const takes = !me ? [] : rows_('Takes', TAKE_COLS).filter(t => !t.removed && t.owner === me.email)
+    .map(t => Object.assign(publicTake_(t), { mine: true }));
+  const auditions = !me ? [] : rows_('Auditions', AUD_COLS).filter(a => a.email === me.email)
+    .map(a => ({ role: a.role, act: Number(a.act), song: String(a.song).padStart(2, '0'), kind: a.kind, takeId: a.takeId, created: a.created }));
+  const comments = !me ? [] : comments_().filter(c => c.status !== 'removed')
+    .map(c => Object.assign(publicComment_(c), { mine: c.owner === me.email }));
+  return { ok: true, locked: true, guest: !!me, takes, auditions, players: [], comments, me: me ? { name: me.name, email: me.email } : null, admin: false };
+}
+
+// ---------- auditions ----------
+// audition: an upload (always private) plus a row in the Auditions sheet for Brian, grouped by role.
+// {act, song, kind: vocal|solo, mode, role, title, note, dur, offset, mime, data}
+function audition_(q, me) {
+  if (ROLES.indexOf(q.role) < 0) throw new Error('bad_role');
+  if (['vocal', 'solo'].indexOf(q.kind) < 0) throw new Error('bad_kind');
+  const up = upload_(Object.assign({}, q, { private: true }), me);
+  const lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    const row = [new Date().toISOString(), me.name, me.email, q.role, String(Number(q.act)), String(q.song),
+      clean_(q.title, 80), q.kind === 'solo' ? 'guitar' : 'vocal', up.id, 'https://drive.google.com/file/d/' + up.fileId + '/view', clean_(q.note, 500)];
+    // written as plain text so a name or note starting with = + - @ is never read as a formula
+    const sh = sheet_('Auditions', AUD_COLS);
+    sh.getRange(sh.getLastRow() + 1, 1, 1, row.length).setRichTextValues([row.map((v, i) => i === 9
+      ? SpreadsheetApp.newRichTextValue().setText(String(v)).setLinkUrl(String(v)).build()
+      : SpreadsheetApp.newRichTextValue().setText(String(v)).build())]);
+  } finally { lock.releaseLock(); }
+  return { ok: true, id: up.id, handle: me.name };
 }
 
 // ---------- playlists ----------
@@ -263,14 +303,14 @@ function upload_(q, me) {
   const id = Utilities.getUuid();
   const created = new Date().toISOString();
   const name = ['A' + q.act, q.song, q.kind, me.name, created.slice(0, 16).replace(/[:T]/g, '')].join('_') + '.wav';
-  const lock = LockService.getScriptLock(); lock.waitLock(20000);
+  const lock = LockService.getScriptLock(); lock.waitLock(20000); let file;
   try {
-    const file = actFolder_(q.act).createFile(Utilities.newBlob(bytes, q.mime || 'audio/wav', name));
+    file = actFolder_(q.act).createFile(Utilities.newBlob(bytes, q.mime || 'audio/wav', name));
     sheet_('Takes', TAKE_COLS).appendRow([id, me.name, Number(q.act), String(q.song), q.kind, !!q.private, created,
       Number(q.dur) || 0, Number(q.offset) || 0, file.getId(), q.mime || 'audio/wav', false, me.email,
       ['full', 'loop'].indexOf(q.mode) >= 0 ? q.mode : '']);
   } finally { lock.releaseLock(); }
-  return { ok: true, id, handle: me.name };
+  return { ok: true, id, handle: me.name, fileId: file.getId() };
 }
 
 function get_(q, me, admin) {
@@ -310,7 +350,8 @@ function signin_(q) {
   const email = String(q.email || '').trim().toLowerCase();
   if (!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(email) || email.length > 120) throw new Error('bad_email');
   const dev = keyHash_(q.key); if (!dev) throw new Error('no_key');
-  if (!isAdmin_(email) && !allowed_(email)) throw new Error('not_subscriber');
+  const aud = !!q.audition;   // auditioners only need to confirm their email
+  if (!aud && !isAdmin_(email) && !allowed_(email)) throw new Error('not_subscriber');
   const lock = LockService.getScriptLock(); lock.waitLock(20000);
   let name;
   try { name = player_(email, q.name); } finally { lock.releaseLock(); }
@@ -318,10 +359,10 @@ function signin_(q) {
   const token = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
   const expires = new Date(Date.now() + LINK_MINUTES * 60000).toISOString();
   sheet_('Devices', DEV_COLS).appendRow([dev, email, keyHash_(token), expires, false, new Date().toISOString()]);
-  const link = SITE_URL + '?signin=' + token;
+  const link = SITE_URL + '?signin=' + token + (aud ? '&audition=1' : '');
   MailApp.sendEmail({
     to: email,
-    subject: 'Magic Pick Player — sign-in link',
+    subject: aud ? 'The Magic Pick — audition sign-in link' : 'Magic Pick Player — sign-in link',
     body: 'Hi ' + name + ',\n\nOpen this link on the computer or phone you want to record on:\n\n' + link +
       '\n\nIt works once and expires in ' + LINK_MINUTES + ' minutes. If you didn\'t ask for this, ignore this email.',
     htmlBody: '<p>Hi ' + esc_(name) + ',</p><p>Open this link on the computer or phone you want to record on:</p>' +
