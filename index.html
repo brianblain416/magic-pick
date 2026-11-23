@@ -257,7 +257,8 @@ button.primary:hover:not(:disabled) { background: #5cffd0; }
 /* paid-subscriber sign-in screen: the player stays hidden until the library says this device may use it */
 body.locked:not(.listen):not(.arec) > main.wrap { display: none; }
 body:not(.locked) > #gate, body.listen > #gate, body.audition > #gate { display: none; }
-/* landing: the first page for anyone who isn't a signed-in member; Play takes them into the pared-down listening player */
+/* landing: the first page for everyone, subscribers too; Play takes them into the pared-down listening player,
+   and subscribers also get a button into the full player (?player) */
 #landing { display: none; }
 body.landing > #landing { display: grid; }
 body.landing > #gate, body.landing > main.wrap { display: none !important; }
@@ -272,6 +273,8 @@ body.landing > #gate, body.landing > main.wrap { display: none !important; }
 #landing .lpBtn span { font-size: 14px; color: var(--muted); }
 #landing .lpBtn.primary span { color: inherit; opacity: .8; }
 #landing .lpSign { margin: 6px 0 0; }
+#landing #lpFull { display: none; }
+body.member #landing #lpFull, body:not(.locked) #landing #lpFull { display: grid; }
 #landing .lpSign a { color: var(--accent); }
 #landing .lpStory { display: flex; align-items: center; gap: 14px; }
 #landing .lpStory .lpRec { flex: none; line-height: 0; border-radius: 50%; }
@@ -316,7 +319,7 @@ body.arec #dlgToggle, body.arec #skip, body.arec .ctl .sep, body.arec #npPicks, 
 body.arec #recAreaClose, body.arec .f:has(> #recPrivacy), body.arec #takesPanel, body.arec #acctPanel, body.arec #midiPanel, body.arec .top h1 { display: none !important; }
 /* listening player: just play, the running order and the lyrics */
 #lsBack { display: none; }
-body.listen #lsBack { display: inline-block; }
+body.listen #lsBack, body:not(.locked):not(.landing) #lsBack { display: inline-block; }
 body.listen #plBar, body.listen #recToggle, body.listen #whoBar, body.listen #whoSign, body.listen #rvOpen,
 body.listen #what, body.listen .seg:has(> [data-mix]), body.listen #through, body.listen .ctl .sep, body.listen #npPicks,
 body.listen .song .picks, body.listen .song .tkdrawer, body.listen #roPanel > .note, body.listen #recArea,
@@ -370,7 +373,7 @@ body.recmode .song .sub, body.recmode .song .tkdrawer { display: none; }
 </style>
 </head>
 <body class="locked landing">
-<script>try { if (localStorage.getItem("mp_member") === "1" && !/[?&]listen\b/.test(location.search) || /[?&](gate|signin|audition)\b/.test(location.search)) document.body.classList.remove("landing"); } catch (e) {}</script>
+<script>try { if (localStorage.getItem("mp_member") === "1") document.body.classList.add("member"); if (/[?&](player|gate|signin|audition)\b/.test(location.search)) document.body.classList.remove("landing"); } catch (e) {}</script>
 <section id="landing" aria-label="The Magic Pick">
   <p class="lpEye">A 70s STONER ROCK MUSICAL, REVIVED</p>
   <h1>The Magic Pick</h1>
@@ -381,6 +384,7 @@ body.recmode .song .sub, body.recmode .song .tkdrawer { display: none; }
   <div class="lpBtns">
     <button id="lpSongs" class="lpBtn primary"><b>▶︎ Play the songs</b><span>With guide vocals</span></button>
     <button id="lpShow" class="lpBtn"><b>▶︎ Play the show</b><span>Songs plus placeholder dialogue</span></button>
+    <button id="lpFull" class="lpBtn"><b>Open the full player</b><span>For subscribers: playlists, takes, mixes and recording</span></button>
   </div>
   <p class="lpSign"><a href="?audition" id="lpSign">Sign in to audition or comment</a></p>
   <p class="lpSign"><a href="https://docs.google.com/document/d/1z3CFTei47Z5p--33nYaJl4u0pQkBSBPBuEs6wh8QMJc/edit?usp=sharing" target="_blank" rel="noopener">The Magic Pick Synopsis</a></p>
@@ -744,7 +748,7 @@ let gateMeEmail = "";
 function setLocked(on) {
   const was = document.body.classList.contains("locked");
   document.body.classList.toggle("locked", on);
-  store.set("mp_member", on ? "0" : "1");
+  store.set("mp_member", on ? "0" : "1"); document.body.classList.toggle("member", !on);
   if (on && !was && !LISTEN) stopEverything();
   if (!on) { stopGateWatch(); return; }
   gateMeEmail = me.email || "";
@@ -2522,6 +2526,7 @@ function enterListen(withDlg) {
 }
 $("lpSongs").onclick = () => enterListen(false);
 $("lpShow").onclick = () => enterListen(true);
+$("lpFull").onclick = () => { location.href = location.pathname + "?player"; };
 $("lsBack").onclick = () => { stopEverything(); ui(); setStatus("Press Play."); document.body.classList.add("landing"); window.scrollTo(0, 0); };
 
 renderAct(); syncRecMode(); if (PL_LOCAL) mergePlaylists(undefined); renderPlaylists(); renderWho(); setStatus("Press Play. Songs load as you reach them.");
