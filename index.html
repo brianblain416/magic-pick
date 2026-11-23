@@ -693,9 +693,15 @@ async function fetchDecode(file, expect) {
   }
   throw new Error("incomplete");
 }
+// Decoded audio is big (a 4-minute song is about 90 MB), so keep only the most recently used files.
+const CACHE_MAX = 8;
 function load(file, expect) {
-  if (!cache.has(file)) cache.set(file, fetchDecode(file, expect).catch(e => { cache.delete(file); throw e; }));
-  return cache.get(file);
+  let p = cache.get(file);
+  if (p) cache.delete(file);   // re-inserted below: the Map's order is the order of last use
+  else p = fetchDecode(file, expect).catch(e => { cache.delete(file); throw e; });
+  cache.set(file, p);
+  while (cache.size > CACHE_MAX) cache.delete(cache.keys().next().value);
+  return p;
 }
 const songFile = (i, m) => "audio/a" + act + "/" + SONGS[i].n + "_" + m + ".mp4";
 const loopFile = i => "audio/a" + act + "/" + SONGS[i].n + "_loop.mp4";
@@ -786,6 +792,7 @@ async function refreshTakes() {
   try {
     const j = await api("list"); remote = j.takes || []; PLAYERS = j.players || [];
     me = j.me ? { handle: j.me.name, email: j.me.email } : { handle: "", email: "" }; IS_ADMIN = !!j.admin;
+    store.set("mp_me", me.email ? JSON.stringify(me) : "");   // lets the audition pages open before the server answers
     COMMENTS = j.comments || []; AUDS = j.auditions || AUDS;
     if (!j.locked) mergePlaylists(j.playlists);
     setLocked(!!j.locked);
@@ -1563,7 +1570,13 @@ function rerenderLines() {
   box.scrollTop = y;
 }
 let loopLit = "";   // which What button is lit for the Loop ("" = none)
+// Write to the page only when the text actually changes (tick runs every frame).
+function setIf(el, prop, v) { if (prop === "width") { if (el.style.width !== v) el.style.width = v; } else if (el[prop] !== v) el[prop] = v; }
+let tickIdle = 0;
 function tick() {
+  requestAnimationFrame(tick);
+  // While stopped, nothing moves: check four times a second instead of every frame.
+  if (!playing && !loopMode && rec.state !== "recording" && ++tickIdle % 15) return;
   const s = SONGS[cur], st = $("stage");
   const lit = rec.state !== "recording" && (loopMode || (playing && plan && plan.loopOn && phase === "song" && posNow() >= plan.loopAt));
   const litKey = lit ? what : "";
@@ -1571,34 +1584,33 @@ function tick() {
   if (rec.state === "recording") { /* recorder draws its own status */ }
   else if (loopMode) {
     const el = ctx.currentTime - loopStart, p = el % s.loopDur, spb = 60 / s.bpm, pass = Math.floor(el / s.loopDur) + 1;
-    $("pos").innerHTML = "<b>Loop " + (loopPasses ? Math.min(pass, loopPasses) + " of " + loopPasses : pass) + "</b> · " +
-      toGo(loopPasses ? loopPasses * s.loopDur - el : s.loopDur - p, spb, s.meter);
-    if (loopPasses) $("fill").style.width = Math.min(100, el / (loopPasses * s.loopDur) * 100) + "%";
-    st.textContent = "Loop"; st.className = "stage count";
+    setIf($("pos"), "innerHTML", "<b>Loop " + (loopPasses ? Math.min(pass, loopPasses) + " of " + loopPasses : pass) + "</b> · " +
+      toGo(loopPasses ? loopPasses * s.loopDur - el : s.loopDur - p, spb, s.meter));
+    if (loopPasses) setIf($("fill"), "width", Math.min(100, el / (loopPasses * s.loopDur) * 100) + "%");
+    setIf(st, "textContent", "Loop"); setIf(st, "className", "stage count");
   } else if (dlg && (phase === "before" || phase === "after")) {
-    st.textContent = playing ? "Dialogue" : "Paused"; st.className = "stage dlg";
+    setIf(st, "textContent", playing ? "Dialogue" : "Paused"); setIf(st, "className", "stage dlg");
     const n = dlg.lines.filter(l => l.x).length, k = dlg.lines.slice(0, dlg.k + 1).filter(l => l.x).length;
-    $("pos").innerHTML = "<b>Line " + Math.min(k, n) + " of " + n + "</b> · " + (dlg.which === "before" ? "before the song" : "after the song");
+    setIf($("pos"), "innerHTML", "<b>Line " + Math.min(k, n) + " of " + n + "</b> · " + (dlg.which === "before" ? "before the song" : "after the song"));
   } else if (plan) {
     const pos = posNow(), p = plan;
-    $("fill").style.width = Math.min(100, pos / p.end * 100) + "%";
-    $("bar").setAttribute("aria-valuenow", String(Math.round(pos / p.end * 100)));
+    setIf($("fill"), "width", Math.min(100, pos / p.end * 100) + "%");
+    { const v = String(Math.round(pos / p.end * 100)); if ($("bar").getAttribute("aria-valuenow") !== v) $("bar").setAttribute("aria-valuenow", v); }
     if (pos < p.dur) {
       const beats = pos / p.spb;
-      $("pos").innerHTML = "<b>Bar " + (Math.floor(beats / s.meter) + 1) + "." + (Math.floor(beats % s.meter) + 1) + "</b> · " + toGo(p.dur - pos, p.spb, s.meter);
-      st.textContent = playing ? (p.vocals && p.vocals.length ? "Song · " + p.vocals.map(t => takeName(t, cur)).join(" + ") : "Song") : "Paused"; st.className = "stage";
+      setIf($("pos"), "innerHTML", "<b>Bar " + (Math.floor(beats / s.meter) + 1) + "." + (Math.floor(beats % s.meter) + 1) + "</b> · " + toGo(p.dur - pos, p.spb, s.meter));
+      setIf(st, "textContent", playing ? (p.vocals && p.vocals.length ? "Song · " + p.vocals.map(t => takeName(t, cur)).join(" + ") : "Song") : "Paused"); setIf(st, "className", "stage");
       showLine(beats);
       const dl = (p.dl || []).find(d => pos >= d.at && pos < d.end), dt = dl ? dl.txt : "";
       if (dt !== p.dlShown) { p.dlShown = dt; setStatus(dt); }
     }
     else if (p.loopOn) {
       const pass = Math.floor((pos - p.loopAt) / s.loopDur) + 1;
-      st.textContent = playing ? "Loop" + (p.takes.length ? " · " + p.takes.map(g => takeName(g.t, cur)).join(" + ") : "") : "Paused"; st.className = "stage solo";
-      $("pos").innerHTML = "<b>Loop " + (p.forever ? pass : Math.min(p.passes, pass) + " of " + p.passes) + "</b> · " +
-        toGo(p.forever ? s.loopDur - ((pos - p.loopAt) % s.loopDur) : p.end - pos, p.spb, s.meter);
+      setIf(st, "textContent", playing ? "Loop" + (p.takes.length ? " · " + p.takes.map(g => takeName(g.t, cur)).join(" + ") : "") : "Paused"); setIf(st, "className", "stage solo");
+      setIf($("pos"), "innerHTML", "<b>Loop " + (p.forever ? pass : Math.min(p.passes, pass) + " of " + p.passes) + "</b> · " +
+        toGo(p.forever ? s.loopDur - ((pos - p.loopAt) % s.loopDur) : p.end - pos, p.spb, s.meter));
     }
   }
-  requestAnimationFrame(tick);
 }
 function renderWho() {
   $("whoBar").textContent = me.handle ? "● " + me.handle : ""; $("whoBar").title = me.handle ? "Signed in as " + me.handle : "";
@@ -1692,7 +1704,11 @@ async function openInput() {
   if (!workletReady) workletReady = ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([WORKLET], { type: "application/javascript" })));
   await workletReady;
   const dev = $("recDevice").value;
+  // Reopening the input for every take makes some interfaces and Bluetooth headsets reconfigure mid-session.
+  if (rec.stream && rec.streamDev === dev && rec.stream.getAudioTracks().some(t => t.readyState === "live")) return;
   if (rec.stream) rec.stream.getTracks().forEach(t => t.stop());
+  if (rec.srcNode) { try { rec.srcNode.disconnect(); } catch (e) {} rec.srcNode = null; }
+  rec.streamDev = dev;
   rec.stream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: dev ? { exact: dev } : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: { ideal: 2 } } });
   listDevices();
   rec.srcNode = ctx.createMediaStreamSource(rec.stream);
@@ -1713,13 +1729,17 @@ function capture(onChunk) {
   rec.srcNode.connect(node);
   return { stop() { node.port.postMessage("stop"); setTimeout(() => { try { rec.srcNode.disconnect(node); node.disconnect(); sink.disconnect(); } catch (e) {} }, 200); } };
 }
-function pickChannel(frames) { const ch = Math.min(+$("recChannel").value, frames.length - 1); return frames[ch]; }
+function pickChannel(frames, ch) { if (ch == null) ch = +$("recChannel").value; return frames[Math.min(ch, frames.length - 1)]; }
 function assemble(chunks, fromFrame, toFrame) {
   fromFrame = Math.round(fromFrame);   // whole frames, or the samples land on fractional indexes and the take is silent
-  const len = Math.max(0, Math.floor(toFrame - fromFrame)), outB = new Float32Array(len);
+  const len = Math.max(0, Math.floor(toFrame - fromFrame)), outB = new Float32Array(len), ch = +$("recChannel").value;
   for (const c of chunks) {
     let f = c.f;
-    for (const fr of c.d) { const data = pickChannel(fr); for (let j = 0; j < data.length; j++) { const at = f + j - fromFrame; if (at >= 0 && at < len) outB[at] = data[j]; } f += data.length; }
+    for (const fr of c.d) {
+      const data = pickChannel(fr, ch), n = data.length;
+      if (f + n > fromFrame && f < fromFrame + len) { const a = Math.max(0, fromFrame - f), b = Math.min(n, fromFrame + len - f); outB.set(data.subarray(a, b), f + a - fromFrame); }
+      f += n;
+    }
   }
   return outB;
 }
@@ -1911,6 +1931,7 @@ $("recGo").onclick = async () => {
 };
 // Overdubbing: the playlist's takes with Monitor on play along while you record and when you listen back.
 async function alongBufs(i) {
+  if (AUD) return [];   // auditions are over the song only
   const ts = liveTakes(i).filter(t => t.kind === "vocal" || t.kind === "solo");
   const bufs = await Promise.all(ts.map(t => loadTake(t).catch(() => null)));
   return ts.map((t, j) => ({ t, k: t.kind === "solo" ? takeKind(t) : "song", b: bufs[j] })).filter(x => x.b);
@@ -1925,6 +1946,7 @@ function playAlong(i, along, songAt, loopAt) {
   });
 }
 function alongText(i) {
+  if (AUD) return "";
   const ts = liveTakes(i).filter(t => t.kind === "vocal" || t.kind === "solo");
   return ts.length ? " Playing along (Monitor on): " + ts.map(t => takeName(t, i) + (t.kind === "vocal" ? " vocal" : " guitar")).join(", ") + "." : "";
 }
@@ -1996,9 +2018,9 @@ $("recSave").onclick = async () => {
     await refreshTakes();
     let where = "";
     if (rec.kind === "synth") picks.synth[key(rec.act, s.n)] = j.id;
-    else if (rec.act === act) { editTake(rec.i, j.id, () => {}); where = " and ticked in your playlist “" + curPL().name + "”"; }
+    else if (rec.act === act) { const solo = rec.kind === "solo"; editTake(rec.i, j.id, x => { if (solo) x.mon = false; }); where = " and ticked in your playlist “" + curPL().name + "”"; }
     renderSongs(); renderSynthTakes();
-    $("recNote").textContent = "Saved" + where + (where ? ", so the next take you record plays along with it" : "") + "." + ($("recPrivacy").value === "private" ? " Only you and Brian can hear it." : "");
+    $("recNote").textContent = "Saved" + where + (!where ? "" : rec.kind === "solo" ? ", with Monitor off so it doesn't play under your next solo" : ", so the next take you record plays along with it") + "." + ($("recPrivacy").value === "private" ? " Only you and Brian can hear it." : "");
   } catch (e) {
     $("recSave").disabled = false;
     $("recNote").textContent = "Couldn't save the take (" + e.message + "). Try again in a moment.";
@@ -2527,8 +2549,16 @@ $("lpFull").onclick = () => { location.href = location.pathname + "?player"; };
 $("lsBack").onclick = () => { stopEverything(); ui(); setStatus("Press Play."); document.body.classList.add("landing"); window.scrollTo(0, 0); };
 
 renderAct(); syncRecMode(); if (PL_LOCAL) mergePlaylists(undefined); renderPlaylists(); renderWho(); setStatus("Press Play. Songs load as you reach them.");
-(SIGNIN_TOKEN ? finishSignin() : refreshTakes()).then(() => { if (AUD_Q != null) showAudition(AUD_Q); });
-if (AUD_Q != null) auShow("");
+// Auditions open straight away for someone signed in on this device last time; the server's answer then
+// confirms who they are (and brings their sent takes), or sends them to sign in.
+const ME_SEEN = (() => { try { return JSON.parse(store.get("mp_me") || "null"); } catch (e) { return null; } })();
+if (AUD_Q != null) { if (!SIGNIN_TOKEN && ME_SEEN && ME_SEEN.email) { me = ME_SEEN; showAudition(AUD_Q); } else auShow(""); }
+(SIGNIN_TOKEN ? finishSignin() : refreshTakes()).then(() => {
+  if (AUD_Q == null || document.body.classList.contains("arec")) return;
+  if (!auView || !me.email || me.email !== (ME_SEEN && ME_SEEN.email)) showAudition(AUD_Q);
+  else if (auView === "auPick") auPickView();
+  else if (auView === "auRole") auRoleView(auRole);
+});
 </script>
 </body>
 </html>
