@@ -262,7 +262,7 @@ body:not(.locked) > #gate, body.listen > #gate, body.audition > #gate { display:
 #landing { display: none; }
 body.landing > #landing { display: grid; }
 body.landing > #gate, body.landing > main.wrap { display: none !important; }
-#landing { max-width: 600px; margin: 6vh auto 40px; padding: 0 16px; gap: 12px; }
+#landing { max-width: 600px; margin: 6vh auto 40px; padding: 0 16px; gap: 12px; grid-template-columns: minmax(0, 1fr); }
 #landing .lpEye { margin: 0; font-size: 13px; letter-spacing: .08em; color: var(--muted); }
 #landing h1 { margin: 0; font-size: clamp(34px, 8vw, 48px); }
 #landing .lpTag { margin: 0; font-size: 18px; color: var(--accent); line-height: 1.4; }
@@ -272,13 +272,13 @@ body.landing > #gate, body.landing > main.wrap { display: none !important; }
 #landing .lpBtn b { font-size: 19px; }
 #landing .lpBtn span { font-size: 14px; color: var(--muted); }
 #landing .lpBtn.primary span { color: inherit; opacity: .8; }
-#landing .lpSign { margin: 6px 0 0; }
 #landing #lpFull { display: none; }
 body.member #landing #lpFull, body:not(.locked) #landing #lpFull { display: grid; }
-#landing .lpSign a { color: var(--accent); }
-#landing .lpStory { display: flex; align-items: center; gap: 14px; }
-#landing .lpStory .lpRec { flex: none; line-height: 0; border-radius: 50%; }
-#landing .lpStory img { width: 96px; height: auto; border-radius: 50%; }
+#landing .lpLinks { display: flex; flex-wrap: wrap; gap: 6px 0; margin: 10px 0 0; font-size: 14px; width: max-content; }
+@media (max-width: 1099px) { #landing .lpLinks { width: auto; } }
+#landing .lpLinks a { color: var(--accent); white-space: nowrap; }
+#landing .lpLinks a + a::before { content: "·"; display: inline-block; padding: 0 10px; color: var(--muted); text-decoration: none; }
+@media (max-width: 640px) { #landing .lpLinks { display: grid; gap: 8px; font-size: 15px; } #landing .lpLinks a + a::before { content: none; } #landing .lpLinks a { white-space: normal; } }
 /* auditions: sign in, pick a role (or guitar songs), check headphones and mic, then a stripped-down recorder */
 #audition { display: none; }
 body.audition > #audition { display: grid; }
@@ -386,10 +386,7 @@ body.recmode .song .sub, body.recmode .song .tkdrawer { display: none; }
     <button id="lpShow" class="lpBtn"><b>▶︎ Play the show</b><span>Songs plus placeholder dialogue</span></button>
     <button id="lpFull" class="lpBtn"><b>Open the full player</b><span>For subscribers: playlists, takes, mixes and recording</span></button>
   </div>
-  <p class="lpSign"><a href="?audition" id="lpSign">Sign in to audition or comment</a></p>
-  <p class="lpSign"><a href="https://docs.google.com/document/d/1z3CFTei47Z5p--33nYaJl4u0pQkBSBPBuEs6wh8QMJc/edit?usp=sharing" target="_blank" rel="noopener">The Magic Pick Synopsis</a></p>
-  <p class="lpSign lpStory"><a class="lpRec" href="https://drive.google.com/file/d/11HZA_9kKrZYWL_NyqekLEEjqgDdsVmYz/view?usp=drive_link" target="_blank" rel="noopener" title="Listen to the 1973 single"><img src="magic-pick-1973.jpg" alt="Listen to the 1973 Good Noise single, Story of the Magic Pick, by Brian Blain" width="96" height="93"></a><a href="https://docs.google.com/document/d/1xX-l8X4hXmVzxLUIdotbP-72yQ8LQ2kf1LusyDirH9s/edit?usp=sharing" target="_blank" rel="noopener">The Story of “The Story of the Magic Pick”</a></p>
-  <p class="lpSign"><a href="Magic_Pick_Script.pdf" download="The Magic Pick - Stage Script v22.pdf">Download Script</a></p>
+  <p class="lpLinks"><a href="?audition" id="lpSign">Sign in to audition or comment</a><a href="synopsis.html">The Magic Pick Synopsis</a><a href="story.html">The Story of “The Story of the Magic Pick”</a><a href="Magic_Pick_Script.pdf" download="The Magic Pick - Stage Script v22.pdf">Download Script</a></p>
 </section>
 <section id="audition" aria-label="Auditions">
   <p><a href="./" id="auHome">← The Magic Pick</a></p>
@@ -658,7 +655,7 @@ body.recmode .song .sub, body.recmode .song .tkdrawer { display: none; }
     <div class="rv-pend" id="rvPend"></div>
     <p class="note" id="rvNote"></p>
   </dialog>
-  <footer class="foot"><a href="https://docs.google.com/document/d/1z3CFTei47Z5p--33nYaJl4u0pQkBSBPBuEs6wh8QMJc/edit?usp=sharing" target="_blank" rel="noopener">The Magic Pick Synopsis</a><a href="https://docs.google.com/document/d/1xX-l8X4hXmVzxLUIdotbP-72yQ8LQ2kf1LusyDirH9s/edit?usp=sharing" target="_blank" rel="noopener">The Story of “The Story of the Magic Pick”</a><a href="./?audition">Audition</a></footer>
+  <footer class="foot"><a href="synopsis.html">The Magic Pick Synopsis</a><a href="story.html">The Story of “The Story of the Magic Pick”</a><a href="./?audition">Audition</a></footer>
 </main>
 
 <script src="config.js"></script>
