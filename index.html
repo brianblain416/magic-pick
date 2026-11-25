@@ -504,8 +504,8 @@ body.recmode .song .sub, body.recmode .song .tkdrawer { display: none; }
         <button data-what="song" aria-pressed="true">Full song</button>
         <button data-what="songloop" aria-pressed="false">Song + Loop</button>
         <button data-what="loop" aria-pressed="false">Loop only</button>
-        <select id="loopN" aria-label="How many times the Loop plays for this song" title="How many times the Loop plays for this song (remembered per song)">
-          <option value="2">×2</option><option value="4">×4</option><option value="8">×8</option><option value="0">∞</option>
+        <select id="loopN" aria-label="How many times the Loop plays for this song" title="How many times the Loop plays for this song (remembered per song; change it any time, even while the Loop is playing)">
+          <option value="1">×1</option><option value="2">×2</option><option value="3">×3</option><option value="4">×4</option><option value="6">×6</option><option value="8">×8</option><option value="12">×12</option><option value="16">×16</option><option value="0">∞</option>
         </select>
       </div>
       <button id="dlgToggle" class="toggle" aria-pressed="true" title="Play the dialogue between and during songs">Dialogue</button>
@@ -1246,12 +1246,13 @@ const WHATS = ["song", "songloop", "loop"], oldMode = store.get("mp_mode");
 let what = WHATS.includes(store.get("mp_what")) ? store.get("mp_what") : (oldMode === "solo" || oldMode === "both" ? "songloop" : "song");
 let dialogueOn = store.get("mp_dlg2") != null ? store.get("mp_dlg2") === "1" : oldMode !== "solo" && oldMode !== "songs";
 let cur = 0, mix = "bandvox", through = true;
-// Loop length per song: x2, x4, x8 or until Stop (0), remembered in this browser
-const LOOPN = [2, 4, 8, 0];
+// Loop length per song: x1 to x16 or until Stop (0), remembered in this browser
+const LOOPN = [1, 2, 3, 4, 6, 8, 12, 16, 0];
 const loopKey = i => "mp_loopn_" + act + "_" + SONGS[i].n;
 function loopN(i) { const v = parseInt(store.get(loopKey(i)), 10); return LOOPN.includes(v) ? v : 4; }
 function showLoopN() { const el = $("loopN"); if (el) el.value = String(loopN(cur)); }
 let loopPasses = 0;   // Loop only: passes for the loop now playing (0 = until Stop)
+let loopNow = null;   // Loop only: {i, my, nodes} for the loop now playing, so its length can change on the fly
 function setWhat(w) { what = w; store.set("mp_what", w); document.querySelectorAll("#what [data-what]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.what === w))); }
 function setDialogue(on) { dialogueOn = on; store.set("mp_dlg2", on ? "1" : "0"); $("dlgToggle").setAttribute("aria-pressed", String(on)); }
 let phase = "song", playing = false, loopMode = false, plan = null, timer = null, run = 0;
@@ -1404,6 +1405,24 @@ function resume() {
   if (plan && plan.i === cur && plan.paused) return start(cur, "song", plan.paused);
   start(cur, "before", 0);
 }
+// Loop only: set when the playing Loop ends from the song's ×N setting. Called at the start and whenever
+// the setting changes mid-loop: it never cuts the pass now playing, and ∞ lets it run on until Stop.
+function loopEnd() {
+  const L = loopNow; if (!L || L.my !== run) return;
+  const i = L.i, s = SONGS[i], want = loopN(i);
+  const pass = Math.max(1, Math.floor((ctx.currentTime - loopStart) / s.loopDur) + 1);
+  clearTimeout(timer);
+  loopPasses = want ? Math.max(want, pass) : 0;
+  // a later stop() replaces an earlier one; ∞ pushes the stop far out of reach
+  const end = loopPasses ? loopStart + loopPasses * s.loopDur : ctx.currentTime + 1e6;
+  try { L.nodes.forEach(n => n.stop(end)); } catch (e) { return playLoop(i); }
+  if (!loopPasses) return;
+  timer = setTimeout(() => {
+    if (L.my !== run) return;
+    if (through && i + 1 < SONGS.length) return playLoop(i + 1);
+    stopEverything(); ui(); setStatus("Loop finished.");
+  }, Math.max(0, (end - ctx.currentTime) * 1000) + 30);
+}
 // Loop only: the Loop repeats until Stop, with a Loop or Song + Loop guitar take's Loop part over it.
 async function playLoop(i) {
   i = i == null ? cur : i; stopEverything(); audio(); await ctx.resume(); const my = run;
@@ -1413,15 +1432,7 @@ async function playLoop(i) {
     const [b, tbs] = await Promise.all([load(loopFile(i), s.loopDur), Promise.all(gs.map(g => loadTake(g.t)))]);
     if (my !== run) return; loopStart = ctx.currentTime + 0.05; const lp = src(b, loopStart, 0, true);
     const tks = gs.map((g, j) => loopLayer(g.t, tbs[j], g.k, loopStart, s)).filter(Boolean);
-    loopPasses = loopN(i);
-    if (loopPasses) {   // x2 / x4 / x8: stop after that many passes; with Play All, the next song's Loop follows
-      const end = loopStart + loopPasses * s.loopDur; lp.stop(end); tks.forEach(n => n.stop(end));
-      timer = setTimeout(() => {
-        if (my !== run) return;
-        if (through && i + 1 < SONGS.length) return playLoop(i + 1);
-        stopEverything(); ui(); setStatus("Loop finished.");
-      }, Math.max(0, (end - ctx.currentTime) * 1000) + 30);
-    }
+    loopNow = { i, my, nodes: [lp].concat(tks) }; loopEnd();
     loopMode = true; phase = "song"; plan = null; dlg = null; ui(); setStatus("");
   } catch (e) { setStatus("Couldn't load the Loop."); }
 }
@@ -1649,7 +1660,7 @@ $("through").onclick = () => { through = !through; $("through").setAttribute("ar
 setWhat(what); setDialogue(dialogueOn); showLoopN();
 $("loopN").onchange = e => {
   store.set(loopKey(cur), e.target.value); renderNow(); setStatus();
-  if (loopMode) playLoop(cur);
+  if (loopMode) loopEnd();
   else if (playing && phase === "song" && plan && what === "songloop") start(cur, "song", posNow());
 };
 document.querySelectorAll("#what [data-what]").forEach(b => b.onclick = () => {
